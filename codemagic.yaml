@@ -7,24 +7,9 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-
     scripts:
       - name: Install Flutter dependencies
         script: flutter pub get
-
-      - name: Set minimum iOS version
-        script: |
-          if [ -f ios/Podfile ]; then
-            sed -i '' 's/platform :ios, .*/platform :ios, '\''15.5'\''/' ios/Podfile
-          else
-            echo "Podfile not found, skipping iOS version set."
-          fi
-
-      - name: Tambahkan permission ke Info.plist
-        script: |
-          PLIST="ios/Runner/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Aplikasi ini memerlukan akses kamera untuk mengambil foto.'" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'Aplikasi ini memerlukan akses lokasi untuk fitur berbasis lokasi.'" "$PLIST"
 
       - name: Install pods
         script: | 
