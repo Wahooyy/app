@@ -36,6 +36,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/splash.png
 
 flutter_icons:
   android: true
@@ -44,8 +46,8 @@ flutter_icons:
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: assets/logo.jpg
-  branding: assets/logo.jpg
+  image: assets/splash.png
+  branding: assets/splash.png
   android_gravity: center
   ios_content_mode: center
   fullscreen: true

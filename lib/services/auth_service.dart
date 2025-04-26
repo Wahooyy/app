@@ -5,7 +5,6 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-
 class AuthService {
   // static const String baseUrl = 'http://kahap.42web.io/auth_app_api';
   // static const String baseUrl = 'http://103.76.15.27/auth_app_api';
@@ -15,29 +14,33 @@ class AuthService {
   // static const String baseUrl = 'http://10.0.2.2/auth_app_api';
 
   static Future<bool> login(String username, String password) async {
-  final res = await http.post(
-    Uri.parse('$baseUrl/login.php'),
-    body: {'username': username, 'password': password},
-  );
+    final res = await http.post(
+      Uri.parse('$baseUrl/login.php'),
+      body: {'username': username, 'password': password},
+    );
 
-  print('RESPONSE STATUS: ${res.statusCode}');
-  print('RESPONSE BODY: ${res.body}');
+    print('RESPONSE STATUS: ${res.statusCode}');
+    print('RESPONSE BODY: ${res.body}');
 
-  try {
-    final data = jsonDecode(res.body);
-    return data['success'] == true;
-  } catch (e) {
-    print('JSON decode error: $e');
-    return false;
+    try {
+      final data = jsonDecode(res.body);
+      return data['success'] == true;
+    } catch (e) {
+      print('JSON decode error: $e');
+      return false;
+    }
   }
-}
-
 
   // Function to handle fingerprint login
   static Future<bool> fingerprintLogin({
     required String fingerprintToken,
     required String deviceId,
   }) async {
+    if (!Platform.isAndroid) {
+      // Jika bukan Android (yaitu iOS), langsung return false atau abaikan proses ini
+      return false;
+    }
+
     final res = await http.post(
       Uri.parse('$baseUrl/fingerprint_login.php'),
       body: {
@@ -50,8 +53,6 @@ class AuthService {
     return data['success'] == true;
   }
 
-
-
   static Future<bool> registerWithFingerprint(
     String name,
     String username,
@@ -59,6 +60,11 @@ class AuthService {
     String fingerprintToken,
     String deviceId, // Menambahkan deviceId sebagai parameter
   ) async {
+    if (!Platform.isAndroid) {
+      // Jika bukan Android (yaitu iOS), langsung return false atau abaikan proses ini
+      return false;
+    }
+
     // Step 1: Register user
     final res = await http.post(
       Uri.parse('$baseUrl/register.php'),
@@ -89,16 +95,20 @@ class AuthService {
       },
     );
 
-    print('RESPONSE STATUS: ${res.statusCode}');
-    print('RESPONSE BODY: ${res.body}');
+    print('RESPONSE STATUS: ${fingerprintRes.statusCode}');
+    print('RESPONSE BODY: ${fingerprintRes.body}');
 
     final fpData = jsonDecode(fingerprintRes.body);
     return fpData['success'] == true;
   }
 
-
   // Function to get the fingerprint token from the database based on device ID
   static Future<String> getFingerprintToken(String deviceId) async {
+    if (!Platform.isAndroid) {
+      // Jika bukan Android (yaitu iOS), langsung return kosong
+      return '';
+    }
+
     final res = await http.post(
       Uri.parse('$baseUrl/get_fingerprint_token.php'),
       body: {'device_id': deviceId},
