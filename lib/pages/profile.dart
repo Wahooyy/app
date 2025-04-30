@@ -1,9 +1,9 @@
+//profile.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:figma_squircle/figma_squircle.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:image_picker/image_picker.dart';
-// ignore: unused_import
 import '../services/auth_service.dart';
 import 'dart:io';
 
@@ -18,17 +18,15 @@ class _ProfilePageState extends State<ProfilePage> {
   File? _profileImage;
   bool _isEditing = false;
   bool _isLoading = false;
+  bool _isLoadingProfile = true;
 
-  // Sample user data - would come from your AuthService in a real app
+    // Initialize with empty values
   Map<String, dynamic> _userData = {
-    'name': 'Maman Racing',
-    'email': 'mamanracing@kahaptex.co.id',
-    'phone': '+62 812 3456 7890',
-    'position': 'Staff IT Pindahan',
-    'department': 'Informasi Teknologi',
-    'employeeId': 'MMK-2023-0042',
-    'joinDate': '15 Januari 2023',
-    'address': 'Jl. Raya Kedep',
+    'adminname': '',
+    'username': '',
+    'nip': '',
+    'email': '',
+    'address': '',
   };
 
   final _nameController = TextEditingController();
@@ -39,10 +37,51 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _nameController.text = _userData['name'] ?? '';
-    _emailController.text = _userData['email'] ?? '';
-    _phoneController.text = _userData['phone'] ?? '';
-    _addressController.text = _userData['address'] ?? '';
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    setState(() {
+      _isLoadingProfile = true;
+    });
+
+    try {
+      // Check if user is logged in
+      final userId = AuthService.getUserId();
+      if (userId == null) {
+        _showMessage('You are not logged in. Please log in again.');
+        setState(() {
+          _isLoadingProfile = false;
+        });
+        // Redirect to login
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+      
+      final userData = await AuthService.getUserProfile();
+      
+      if (userData != null) {
+        setState(() {
+          _userData = userData;
+          _nameController.text = _userData['adminname'] ?? '';
+          _emailController.text = _userData['email'] ?? '';
+          _phoneController.text = _userData['nip'] ?? '';
+          _addressController.text = _userData['location'] ?? '';
+          _isLoadingProfile = false;
+        });
+      } else {
+        _showMessage('Could not retrieve profile data. Please try again.');
+        setState(() {
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+      _showMessage('Error: $e');
+      setState(() {
+        _isLoadingProfile = false;
+      });
+    }
   }
 
   @override
@@ -68,10 +107,10 @@ class _ProfilePageState extends State<ProfilePage> {
       _isEditing = !_isEditing;
       if (!_isEditing) {
         // Reset controllers to original values if canceling edit
-        _nameController.text = _userData['name'] ?? '';
+        _nameController.text = _userData['adminname'] ?? '';
         _emailController.text = _userData['email'] ?? '';
-        _phoneController.text = _userData['phone'] ?? '';
-        _addressController.text = _userData['address'] ?? '';
+        _phoneController.text = _userData['nip'] ?? '';
+        _addressController.text = _userData['location'] ?? '';
       }
     });
   }
@@ -87,10 +126,10 @@ class _ProfilePageState extends State<ProfilePage> {
       
       // Update local data
       setState(() {
-        _userData['name'] = _nameController.text;
+        _userData['adminname'] = _nameController.text;
         _userData['email'] = _emailController.text;
-        _userData['phone'] = _phoneController.text;
-        _userData['address'] = _addressController.text;
+        _userData['nip'] = _phoneController.text;
+        _userData['location'] = _addressController.text;
         _isEditing = false;
         _isLoading = false;
       });
@@ -247,18 +286,22 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildProfileHeader(),
-            SizedBox(height: 24),
-            _isEditing ? _buildEditableForm() : _buildProfileDetails(),
-            SizedBox(height: 24),
-            if (!_isEditing) _buildActionButtons(),
-          ],
-        ),
-      ),
+        body: _isLoadingProfile 
+        ? Center(
+            child: CircularProgressIndicator(color: _primaryColor),
+          )
+        : SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildProfileHeader(),
+                SizedBox(height: 24),
+                _isEditing ? _buildEditableForm() : _buildProfileDetails(),
+                SizedBox(height: 24),
+                if (!_isEditing) _buildActionButtons(),
+              ],
+            ),
+          ),
     );
   }
 
@@ -309,17 +352,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       : null,
                 ),
                 child: _profileImage == null
-                    ? Center(
-                        child: Text(
-                          _userData['name']?.substring(0, 1) ?? 'A',
-                          style: GoogleFonts.outfit(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: _primaryColor,
-                          ),
-                        ),
-                      )
-                    : null,
+    ? Center(
+        child: Text(
+          (_userData['adminname']?.isNotEmpty == true) 
+              ? _userData['adminname']!.substring(0, 1) 
+              : 'A',
+          style: GoogleFonts.outfit(
+            fontSize: 36,
+            fontWeight: FontWeight.bold,
+            color: _primaryColor,
+          ),
+        ),
+      )
+    : null,
               ),
               if (_isEditing)
                 GestureDetector(
@@ -346,7 +391,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           SizedBox(height: 16),
           Text(
-            _userData['name'] ?? 'User',
+            _userData['adminname'] ?? 'User',
             style: GoogleFonts.outfit(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -355,7 +400,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           SizedBox(height: 4),
           Text(
-            _userData['position'] ?? 'Position',
+            _userData['username'] ?? 'Position',
             style: GoogleFonts.outfit(
               fontSize: 16,
               color: Colors.black54,
@@ -400,37 +445,37 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             _buildInfoItem(
               HugeIcons.strokeRoundedSmartPhone02,
-              'Nomor Telepon',
-              _userData['phone'] ?? '-',
+              'NIP',
+              _userData['nip'] ?? '-',
             ),
             _buildInfoItem(
               HugeIcons.strokeRoundedLocation05,
               'Alamat',
-              _userData['address'] ?? '-',
+              _userData['location'] ?? '-',
             ),
           ],
         ),
         SizedBox(height: 20),
-        _buildInfoSection(
-          'Informasi Pekerjaan',
-          [
-            _buildInfoItem(
-              HugeIcons.strokeRoundedBuilding02,
-              'Departemen',
-              _userData['department'] ?? '-',
-            ),
-            _buildInfoItem(
-              HugeIcons.strokeRoundedUserAccount,
-              'ID Karyawan',
-              _userData['employeeId'] ?? '-',
-            ),
-            _buildInfoItem(
-              HugeIcons.strokeRoundedCalendar01,
-              'Tanggal Bergabung',
-              _userData['joinDate'] ?? '-',
-            ),
-          ],
-        ),
+        // _buildInfoSection(
+        //   'Informasi Pekerjaan',
+        //   [
+        //     _buildInfoItem(
+        //       HugeIcons.strokeRoundedBuilding02,
+        //       'Departemen',
+        //       _userData['department'] ?? '-',
+        //     ),
+        //     _buildInfoItem(
+        //       HugeIcons.strokeRoundedUserAccount,
+        //       'ID Karyawan',
+        //       _userData['employeeId'] ?? '-',
+        //     ),
+        //     _buildInfoItem(
+        //       HugeIcons.strokeRoundedCalendar01,
+        //       'Tanggal Bergabung',
+        //       _userData['joinDate'] ?? '-',
+        //     ),
+        //   ],
+        // ),
       ],
     );
   }

@@ -21,6 +21,20 @@ class _HomePageState extends State<HomePage> {
   final String _position = "Staff IT Pindahan";
   final Color _primaryColor = Color(0xFF6200EE);
   final List<GlobalKey<_ScaleIconState>> _iconKeys = List.generate(4, (_) => GlobalKey<_ScaleIconState>());
+  bool _isLoadingProfile = true;
+
+  Map<String, dynamic> _userData = {
+    'adminname': '',
+    'username': '',
+    'nip': '',
+    'email': '',
+    'address': '',
+  };
+
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   
   // Track the selected attendance tab (check-in or check-out)
   String _selectedAttendanceTab = 'Check In';
@@ -29,8 +43,54 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     initializeDateFormatting('id_ID', null);
+    _loadUserProfile();
+
   }
-  
+
+  Future<void> _loadUserProfile() async {
+    setState(() {
+      _isLoadingProfile = true;
+    });
+
+    try {
+      // Check if user is logged in
+      final userId = AuthService.getUserId();
+      if (userId == null) {
+        _showMessage('You are not logged in. Please log in again.');
+        setState(() {
+          _isLoadingProfile = false;
+        });
+        // Redirect to login
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+      
+      final userData = await AuthService.getUserProfile();
+      
+      if (userData != null) {
+        setState(() {
+          _userData = userData;
+          _nameController.text = _userData['adminname'] ?? '';
+          _emailController.text = _userData['email'] ?? '';
+          _phoneController.text = _userData['nip'] ?? '';
+          _addressController.text = _userData['location'] ?? '';
+          _isLoadingProfile = false;
+        });
+      } else {
+        _showMessage('Could not retrieve profile data. Please try again.');
+        setState(() {
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+      _showMessage('Error: $e');
+      setState(() {
+        _isLoadingProfile = false;
+      });
+    }
+  }  
+
   // Sample data for recent attendance
   final List<Map<String, dynamic>> _recentAttendance = [
     {
@@ -341,7 +401,7 @@ void _showSuccessDialog(BuildContext context, String message) {
             ),
             child: Center(
               child: Text(
-                _username.substring(0, 1),
+                _userData['adminname'].substring(0, 1),
                 style: GoogleFonts.outfit(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -364,7 +424,7 @@ void _showSuccessDialog(BuildContext context, String message) {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  _username,
+                  _userData['adminname'],
                   style: GoogleFonts.outfit(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -373,7 +433,7 @@ void _showSuccessDialog(BuildContext context, String message) {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  _position,
+                  _userData['username'],
                   style: GoogleFonts.outfit(
                     fontSize: 14,
                     color: Colors.black54,
@@ -442,16 +502,16 @@ void _showSuccessDialog(BuildContext context, String message) {
               children: [
                 Expanded(
                   child: _buildAttendanceTabButton(
-                    'Check In',
+                    'Masuk',
                     HugeIcons.strokeRoundedClock01,
-                    _selectedAttendanceTab == 'Check In',
+                    _selectedAttendanceTab == 'Masuk',
                   ),
                 ),
                 Expanded(
                   child: _buildAttendanceTabButton(
-                    'Check Out',
+                    'Pulang',
                     HugeIcons.strokeRoundedClock01,
-                    _selectedAttendanceTab == 'Check Out',
+                    _selectedAttendanceTab == 'Pulang',
                   ),
                 ),
               ],
@@ -492,7 +552,7 @@ void _showSuccessDialog(BuildContext context, String message) {
                   child: ElevatedButton.icon(
                     onPressed: _startAttendanceFlow,
                     icon: Icon(
-                      _selectedAttendanceTab == 'Check In'
+                      _selectedAttendanceTab == 'Masuk'
                           ? HugeIcons.strokeRoundedFingerprintScan
                           : HugeIcons.strokeRoundedLogout01,
                       size: 20,

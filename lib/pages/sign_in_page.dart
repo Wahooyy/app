@@ -366,36 +366,36 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     SizedBox(height: 30),
                     
                     // Sign Up Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Belum punya akun?",
-                          style: GoogleFonts.outfit(
-                            color: Colors.black54,
-                            fontSize: 14,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/signup');
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: primaryColor,
-                            padding: EdgeInsets.only(left: 5),
-                            minimumSize: Size(0, 0),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            'Daftar',
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    // Row(
+                    //   mainAxisAlignment: MainAxisAlignment.center,
+                    //   children: [
+                    //     Text(
+                    //       "Belum punya akun?",
+                    //       style: GoogleFonts.outfit(
+                    //         color: Colors.black54,
+                    //         fontSize: 14,
+                    //       ),
+                    //     ),
+                    //     TextButton(
+                    //       onPressed: () {
+                    //         Navigator.pushReplacementNamed(context, '/signup');
+                    //       },
+                    //       style: TextButton.styleFrom(
+                    //         foregroundColor: primaryColor,
+                    //         padding: EdgeInsets.only(left: 5),
+                    //         minimumSize: Size(0, 0),
+                    //         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    //       ),
+                    //       child: Text(
+                    //         'Daftar',
+                    //         style: GoogleFonts.outfit(
+                    //           fontWeight: FontWeight.w600,
+                    //           fontSize: 14,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
                   ],
                 ),
               ),
