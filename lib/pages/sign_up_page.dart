@@ -60,7 +60,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
       deviceId = iosInfo.identifierForVendor ?? 'unknown';
     } else {
       AndroidDeviceInfo androidInfo = await _deviceInfo.androidInfo;
-      deviceId = androidInfo.id ?? 'unknown'; // Using androidInfo.id for Android
+      // deviceId = androidInfo.id ?? 'unknown';
+      deviceId = androidInfo.id;
     }
     return deviceId;
   }

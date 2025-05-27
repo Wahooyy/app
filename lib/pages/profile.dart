@@ -1,9 +1,9 @@
-//profile.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:figma_squircle/figma_squircle.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:image_picker/image_picker.dart';
+// import 'package:image_picker/image_picker.dart';
+// ignore: unused_import
 import '../services/auth_service.dart';
 import 'dart:io';
 
@@ -14,13 +14,11 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final Color _primaryColor = Color(0xFF6200EE);
-  final ImagePicker _picker = ImagePicker();
+  // final ImagePicker _picker = ImagePicker();
   File? _profileImage;
-  bool _isEditing = false;
-  bool _isLoading = false;
   bool _isLoadingProfile = true;
 
-    // Initialize with empty values
+  // Initialize with empty values
   Map<String, dynamic> _userData = {
     'adminname': '',
     'username': '',
@@ -28,11 +26,6 @@ class _ProfilePageState extends State<ProfilePage> {
     'email': '',
     'address': '',
   };
-
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
 
   @override
   void initState() {
@@ -63,10 +56,6 @@ class _ProfilePageState extends State<ProfilePage> {
       if (userData != null) {
         setState(() {
           _userData = userData;
-          _nameController.text = _userData['adminname'] ?? '';
-          _emailController.text = _userData['email'] ?? '';
-          _phoneController.text = _userData['nip'] ?? '';
-          _addressController.text = _userData['location'] ?? '';
           _isLoadingProfile = false;
         });
       } else {
@@ -81,65 +70,6 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _isLoadingProfile = false;
       });
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _addressController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _profileImage = File(image.path);
-      });
-    }
-  }
-
-  void _toggleEdit() {
-    setState(() {
-      _isEditing = !_isEditing;
-      if (!_isEditing) {
-        // Reset controllers to original values if canceling edit
-        _nameController.text = _userData['adminname'] ?? '';
-        _emailController.text = _userData['email'] ?? '';
-        _phoneController.text = _userData['nip'] ?? '';
-        _addressController.text = _userData['location'] ?? '';
-      }
-    });
-  }
-
-  Future<void> _saveChanges() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Simulate API call with delay
-      await Future.delayed(Duration(seconds: 1));
-      
-      // Update local data
-      setState(() {
-        _userData['adminname'] = _nameController.text;
-        _userData['email'] = _emailController.text;
-        _userData['nip'] = _phoneController.text;
-        _userData['location'] = _addressController.text;
-        _isEditing = false;
-        _isLoading = false;
-      });
-      
-      _showMessage('Profil berhasil diperbarui!');
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showMessage('Gagal memperbarui profil. Silakan coba lagi.');
     }
   }
 
@@ -230,6 +160,7 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: Colors.white,
         scrolledUnderElevation: 0,
         elevation: 0,
+        centerTitle: true,
         title: Text(
           'Profil Saya',
           style: GoogleFonts.outfit(
@@ -238,55 +169,12 @@ class _ProfilePageState extends State<ProfilePage> {
             fontSize: 18,
           ),
         ),
-        leading: IconButton(
-          icon: Icon(HugeIcons.strokeRoundedArrowLeft01, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          _isEditing
-              ? Row(
-                  children: [
-                    TextButton(
-                      onPressed: _toggleEdit,
-                      child: Text(
-                        'Batal',
-                        style: GoogleFonts.outfit(
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _isLoading ? null : _saveChanges,
-                      child: _isLoading
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: _primaryColor,
-                              ),
-                            )
-                          : Text(
-                              'Simpan',
-                              style: GoogleFonts.outfit(
-                                color: _primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                  ],
-                )
-              : IconButton(
-                  icon: Icon(
-                    HugeIcons.strokeRoundedEdit01,
-                    color: Colors.black87,
-                  ),
-                  onPressed: _toggleEdit,
-                ),
-        ],
+        // leading: IconButton(
+        //   icon: Icon(HugeIcons.strokeRoundedArrowLeft01, color: Colors.black87),
+        //   onPressed: () => Navigator.pop(context),
+        // ),
       ),
-        body: _isLoadingProfile 
+      body: _isLoadingProfile 
         ? Center(
             child: CircularProgressIndicator(color: _primaryColor),
           )
@@ -296,9 +184,9 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 _buildProfileHeader(),
                 SizedBox(height: 24),
-                _isEditing ? _buildEditableForm() : _buildProfileDetails(),
+                _buildProfileDetails(),
                 SizedBox(height: 24),
-                if (!_isEditing) _buildActionButtons(),
+                _buildActionButtons(),
               ],
             ),
           ),
@@ -306,129 +194,176 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileHeader() {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: SmoothRectangleBorder(
-          borderRadius: SmoothBorderRadius(
-            cornerRadius: 20,
-            cornerSmoothing: 1,
+    return Stack(
+      children: [
+        // Gradient background behind the card
+        Container(
+          height: 200,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _primaryColor.withOpacity(0.12),
+                Colors.white,
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(24),
           ),
-          side: BorderSide(
-                color: Colors.grey.shade100,
-                width: 2,
-              ),
         ),
-        // shadows: [
-        //   BoxShadow(
-        //     color: Colors.black.withOpacity(0.05),
-        //     blurRadius: 10,
-        //     offset: Offset(0, 4),
-        //   ),
-        // ],
-      ),
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: ShapeDecoration(
-                  color: _primaryColor.withOpacity(0.1),
-                  shape: SmoothRectangleBorder(
-                    borderRadius: SmoothBorderRadius(
-                      cornerRadius: 50,
-                      cornerSmoothing: 1,
-                    ),
-                  ),
-                  image: _profileImage != null
-                      ? DecorationImage(
-                          image: FileImage(_profileImage!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
+        Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: EdgeInsets.only(top: 32),
+            padding: EdgeInsets.all(20),
+            decoration: ShapeDecoration(
+              color: Colors.white,
+              shadows: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.07),
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
                 ),
-                child: _profileImage == null
-    ? Center(
-        child: Text(
-          (_userData['adminname']?.isNotEmpty == true) 
-              ? _userData['adminname']!.substring(0, 1) 
-              : 'A',
-          style: GoogleFonts.outfit(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            color: _primaryColor,
-          ),
-        ),
-      )
-    : null,
+              ],
+              shape: SmoothRectangleBorder(
+                borderRadius: SmoothBorderRadius(
+                  cornerRadius: 24,
+                  cornerSmoothing: 1,
+                ),
+                side: BorderSide(
+                  color: Colors.grey.shade100,
+                  width: 2,
+                ),
               ),
-              if (_isEditing)
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: ShapeDecoration(
-                      color: _primaryColor,
-                      shape: SmoothRectangleBorder(
-                        borderRadius: SmoothBorderRadius(
-                          cornerRadius: 12,
-                          cornerSmoothing: 1,
+            ),
+            child: Column(
+              children: [
+                Stack(
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primaryColor.withOpacity(0.18),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                        border: Border.all(
+                          color: _primaryColor.withOpacity(0.25),
+                          width: 3,
+                        ),
+                      ),
+                      child: Container(
+                        decoration: ShapeDecoration(
+                          color: _primaryColor.withOpacity(0.1),
+                          shape: SmoothRectangleBorder(
+                            borderRadius: SmoothBorderRadius(
+                              cornerRadius: 50,
+                              cornerSmoothing: 1,
+                            ),
+                          ),
+                          image: _profileImage != null
+                              ? DecorationImage(
+                                  image: FileImage(_profileImage!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: _profileImage == null
+                            ? Center(
+                                child: Text(
+                                  (_userData['adminname']?.isNotEmpty == true)
+                                      ? _userData['adminname']!.substring(0, 1)
+                                      : 'A',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primaryColor,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    // Edit icon overlay (future use)
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          HugeIcons.strokeRoundedEdit02,
+                          color: _primaryColor,
+                          size: 18,
                         ),
                       ),
                     ),
-                    child: Icon(
-                      HugeIcons.strokeRoundedCamera01,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                  ],
+                ),
+                SizedBox(height: 18),
+                Text(
+                  _userData['adminname'] ?? 'Nama',
+                  style: GoogleFonts.outfit(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                 ),
-            ],
-          ),
-          SizedBox(height: 16),
-          Text(
-            _userData['adminname'] ?? 'User',
-            style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            _userData['username'] ?? 'Position',
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              color: Colors.black54,
-            ),
-          ),
-          SizedBox(height: 4),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: ShapeDecoration(
-              color: Colors.green.withOpacity(0.1),
-              shape: SmoothRectangleBorder(
-                borderRadius: SmoothBorderRadius(
-                  cornerRadius: 8,
-                  cornerSmoothing: 1,
+                SizedBox(height: 4),
+                Text(
+                  _userData['username'] ?? 'Username',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    color: Colors.black54,
+                  ),
                 ),
-              ),
-            ),
-            child: Text(
-              'Aktif',
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.green,
-              ),
+                SizedBox(height: 10),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: ShapeDecoration(
+                    color: Colors.green.withOpacity(0.12),
+                    shape: SmoothRectangleBorder(
+                      borderRadius: SmoothBorderRadius(
+                        cornerRadius: 10,
+                        cornerSmoothing: 1,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, color: Colors.green, size: 10),
+                      SizedBox(width: 6),
+                      Text(
+                        'Aktif',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -436,7 +371,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         _buildInfoSection(
-          'Informasi Pribadi',
+          'Informasi',
           [
             _buildInfoItem(
               HugeIcons.strokeRoundedMail02,
@@ -444,7 +379,7 @@ class _ProfilePageState extends State<ProfilePage> {
               _userData['email'] ?? '-',
             ),
             _buildInfoItem(
-              HugeIcons.strokeRoundedSmartPhone02,
+              HugeIcons.strokeRoundedUserAccount,
               'NIP',
               _userData['nip'] ?? '-',
             ),
@@ -456,26 +391,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
         SizedBox(height: 20),
-        // _buildInfoSection(
-        //   'Informasi Pekerjaan',
-        //   [
-        //     _buildInfoItem(
-        //       HugeIcons.strokeRoundedBuilding02,
-        //       'Departemen',
-        //       _userData['department'] ?? '-',
-        //     ),
-        //     _buildInfoItem(
-        //       HugeIcons.strokeRoundedUserAccount,
-        //       'ID Karyawan',
-        //       _userData['employeeId'] ?? '-',
-        //     ),
-        //     _buildInfoItem(
-        //       HugeIcons.strokeRoundedCalendar01,
-        //       'Tanggal Bergabung',
-        //       _userData['joinDate'] ?? '-',
-        //     ),
-        //   ],
-        // ),
       ],
     );
   }
@@ -494,13 +409,6 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 2,
           ),
         ),
-        // shadows: [
-        //   BoxShadow(
-        //     color: Colors.black.withOpacity(0.05),
-        //     blurRadius: 10,
-        //     offset: Offset(0, 4),
-        //   ),
-        // ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,7 +424,13 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ),
-          Divider(height: 1),
+          Divider(
+            height: 1,
+            thickness: 2,
+            color: Colors.grey.shade100,
+            indent: 16,
+            endIndent: 16,
+          ),
           ...items,
         ],
       ),
@@ -567,121 +481,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildEditableForm() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: SmoothRectangleBorder(
-          borderRadius: SmoothBorderRadius(
-            cornerRadius: 20,
-            cornerSmoothing: 1,
-          ),
-          side: BorderSide(
-            color: Colors.grey.shade100,
-            width: 2,
-          ),
-        ),
-        // shadows: [
-        //   BoxShadow(
-        //     color: Colors.black.withOpacity(0.05),
-        //     blurRadius: 10,
-        //     offset: Offset(0, 4),
-        //   ),
-        // ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Edit Profil',
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 16),
-          _buildTextField(
-            controller: _nameController,
-            label: 'Nama Lengkap',
-            icon: HugeIcons.strokeRoundedUser03,
-          ),
-          SizedBox(height: 16),
-          _buildTextField(
-            controller: _emailController,
-            label: 'Email',
-            icon: HugeIcons.strokeRoundedMail01,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          SizedBox(height: 16),
-          _buildTextField(
-            controller: _phoneController,
-            label: 'Nomor Telepon',
-            icon: HugeIcons.strokeRoundedSmartPhone02,
-            keyboardType: TextInputType.phone,
-          ),
-          SizedBox(height: 16),
-          _buildTextField(
-            controller: _addressController,
-            label: 'Alamat',
-            icon: HugeIcons.strokeRoundedLocation05,
-            maxLines: 3,
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Informasi pekerjaan hanya dapat diubah oleh admin',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: Colors.black54,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-  }) {
-    return TextFormField(
-      controller: controller,
-      style: GoogleFonts.outfit(),
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.outfit(
-          color: Colors.grey.shade700,
-          fontWeight: FontWeight.w500,
-        ),
-        prefixIcon: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Icon(icon),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: _primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
       ),
     );
   }
@@ -743,13 +542,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 width: 2,
               ),
           ),
-          // shadows: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.05),
-          //     blurRadius: 10,
-          //     offset: Offset(0, 4),
-          //   ),
-          // ],
         ),
         child: Row(
           children: [

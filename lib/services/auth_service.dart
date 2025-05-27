@@ -142,7 +142,8 @@ class AuthService {
 
     if (Platform.isAndroid) {
       final androidInfo = await deviceInfo.androidInfo;
-      deviceId = androidInfo.id ?? 'unknown';
+      // deviceId = androidInfo.id ?? 'unknown';
+      deviceId = androidInfo.id;
     } else if (Platform.isIOS) {
       final iosInfo = await deviceInfo.iosInfo;
       deviceId = iosInfo.identifierForVendor ?? 'unknown';

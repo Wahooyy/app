@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/auth_service.dart';
 import 'profile.dart';
+import 'ticket_support_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -17,10 +18,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final LocalAuthentication auth = LocalAuthentication();
   int _selectedIndex = 0;
-  final String _username = "Maman Racing";
-  final String _position = "Staff IT Pindahan";
   final Color _primaryColor = Color(0xFF6200EE);
   final List<GlobalKey<_ScaleIconState>> _iconKeys = List.generate(4, (_) => GlobalKey<_ScaleIconState>());
+  // ignore: unused_field
   bool _isLoadingProfile = true;
 
   Map<String, dynamic> _userData = {
@@ -37,7 +37,7 @@ class _HomePageState extends State<HomePage> {
   final _addressController = TextEditingController();
   
   // Track the selected attendance tab (check-in or check-out)
-  String _selectedAttendanceTab = 'Check In';
+  String _selectedAttendanceTab = 'Masuk';
   
   @override
   void initState() {
@@ -290,7 +290,7 @@ void _showSuccessDialog(BuildContext context, String message) {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
+      appBar: _selectedIndex == 0 ? _buildAppBar() : null,
       body: _buildBody(),
       bottomNavigationBar: _buildBottomNavBar(),
     );
@@ -342,7 +342,7 @@ void _showSuccessDialog(BuildContext context, String message) {
       case 1:
         return _buildComingSoonPage("Izin");
       case 2:
-        return _buildComingSoonPage("Riwayat Kehadiran");
+        return TicketSupportPage();
       case 3:
         return ProfilePage();
       default:
@@ -401,7 +401,9 @@ void _showSuccessDialog(BuildContext context, String message) {
             ),
             child: Center(
               child: Text(
-                _userData['adminname'].substring(0, 1),
+                (_userData['adminname'] != null && _userData['adminname'].isNotEmpty)
+                    ? _userData['adminname'].substring(0, 1)
+                    : '?', // fallback kalau kosong/null
                 style: GoogleFonts.outfit(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -964,8 +966,8 @@ void _showSuccessDialog(BuildContext context, String message) {
           enableFeedback: false,
           items: [
             _buildNavItem(0, HugeIcons.strokeRoundedHome01, 'Beranda'),
-            _buildNavItem(1, HugeIcons.strokeRoundedCalendarRemove01, 'Izin'),
-            _buildNavItem(2, HugeIcons.strokeRoundedFile01, 'Riwayat'),
+            _buildNavItem(1, HugeIcons.strokeRoundedCalendarRemove01, 'Riwayat'),
+            _buildNavItem(2, HugeIcons.strokeRoundedFile01, 'Tiket'),
             _buildNavItem(3, HugeIcons.strokeRoundedUser, 'Profil'),
           ],
         ),

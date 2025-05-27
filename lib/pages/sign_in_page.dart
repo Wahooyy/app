@@ -110,7 +110,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
       if (Platform.isAndroid) {
         AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        deviceId = androidInfo.id ?? '';
+        // deviceId = androidInfo.id ?? 'unknown';
+        deviceId = androidInfo.id;
       } else if (Platform.isIOS) {
         IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
         deviceId = iosInfo.identifierForVendor ?? '';
@@ -123,6 +124,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       // Get fingerprint token based on device ID from database
       final token = await AuthService.getFingerprintToken(deviceId);
 
+      // ignore: unnecessary_null_comparison
       if (token == null) {
         _showMessage("No fingerprint registered for this device.");
         setState(() => _isLoading = false);
