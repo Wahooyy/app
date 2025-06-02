@@ -1,3 +1,4 @@
+// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -9,6 +10,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../services/auth_service.dart';
 import 'profile.dart';
 import 'ticket_support_page.dart';
+import 'attendance_history.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -18,10 +20,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final LocalAuthentication auth = LocalAuthentication();
   int _selectedIndex = 0;
-  final Color _primaryColor = Color(0xFF6200EE);
-  final List<GlobalKey<_ScaleIconState>> _iconKeys = List.generate(4, (_) => GlobalKey<_ScaleIconState>());
+  final Color _primaryColor = Color(0xFF143CFF);
+  final List<GlobalKey<_ScaleIconState>> _iconKeys = List.generate(
+    4,
+    (_) => GlobalKey<_ScaleIconState>(),
+  );
   // ignore: unused_field
   bool _isLoadingProfile = true;
+  bool _checkedInToday = false;
+  String? _jamIn;
+  bool _checkedOutToday = false;
+  String? _jamOut;
+  bool _loadingCheckinStatus = true;
 
   Map<String, dynamic> _userData = {
     'adminname': '',
@@ -35,16 +45,18 @@ class _HomePageState extends State<HomePage> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  
+
   // Track the selected attendance tab (check-in or check-out)
   String _selectedAttendanceTab = 'Masuk';
-  
+
   @override
   void initState() {
     super.initState();
     initializeDateFormatting('id_ID', null);
-    _loadUserProfile();
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserProfile();
+      _loadCheckinStatus();
+    });
   }
 
   Future<void> _loadUserProfile() async {
@@ -64,9 +76,9 @@ class _HomePageState extends State<HomePage> {
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
-      
+
       final userData = await AuthService.getUserProfile();
-      
+
       if (userData != null) {
         setState(() {
           _userData = userData;
@@ -89,7 +101,22 @@ class _HomePageState extends State<HomePage> {
         _isLoadingProfile = false;
       });
     }
-  }  
+  }
+
+  Future<void> _loadCheckinStatus() async {
+    setState(() {
+      _loadingCheckinStatus = true;
+    });
+    final status = await AuthService.getTodayCheckinStatus();
+    setState(() {
+      _checkedInToday = status['checked_in'] ?? false;
+      _jamIn = status['jam_in'];
+      _checkedOutToday = status['checked_out'] ?? false;
+      _jamOut = status['jam_out'];
+      _loadingCheckinStatus = false;
+      print('Checked out today: $_checkedOutToday');
+    });
+  }
 
   // Sample data for recent attendance
   final List<Map<String, dynamic>> _recentAttendance = [
@@ -129,110 +156,108 @@ class _HomePageState extends State<HomePage> {
 
   // Add this function to your _HomePageState class
   void _showLoadingDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      shape: SmoothRectangleBorder(
-        borderRadius: SmoothBorderRadius(
-          cornerRadius: 20,
-          cornerSmoothing: 1,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(height: 20),
-          CircularProgressIndicator(
-            color: _primaryColor,
-            strokeWidth: 3,
-          ),
-          SizedBox(height: 24),
-          Text(
-            "Memproses...",
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: 20),
-        ],
-      ),
-    ),
-  );
-}
-
-void _showSuccessDialog(BuildContext context, String message) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: SmoothRectangleBorder(
-        borderRadius: SmoothBorderRadius(
-          cornerRadius: 20,
-          cornerSmoothing: 1,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(height: 20),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Icon(
-                HugeIcons.strokeRoundedCheckmarkCircle03, 
-                color: Colors.green,
-                size: 50,
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 20,
+                cornerSmoothing: 1,
               ),
             ),
-          ),
-          SizedBox(height: 24),
-          Text(
-            message,
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 12),
-                shape: SmoothRectangleBorder(
-                  borderRadius: SmoothBorderRadius(
-                    cornerRadius: 12,
-                    cornerSmoothing: 0.8,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: 20),
+                CircularProgressIndicator(color: _primaryColor, strokeWidth: 3),
+                SizedBox(height: 24),
+                Text(
+                  "Memproses...",
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              child: Text(
-                "OK",
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
+                SizedBox(height: 20),
+              ],
             ),
           ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 
+  void _showSuccessDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 20,
+                cornerSmoothing: 1,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: 20),
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      HugeIcons.strokeRoundedCheckmarkCircle03,
+                      color: Colors.green,
+                      size: 50,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 24),
+                Text(
+                  message,
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: SmoothRectangleBorder(
+                        borderRadius: SmoothBorderRadius(
+                          cornerRadius: 12,
+                          cornerSmoothing: 0.8,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      "OK",
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
 
   Future<void> _startAttendanceFlow() async {
     String? scannedCode = await showDialog(
@@ -253,17 +278,20 @@ void _showSuccessDialog(BuildContext context, String message) {
     }
 
     _showLoadingDialog(context); // 1. tampilkan dialog loading
-
-    bool success = await AuthService.submitAttendance(scannedCode); // 2. tunggu API
+    String mode = _selectedAttendanceTab == 'Masuk' ? 'checkin' : 'checkout';
+    bool success = await AuthService.submitAttendance(scannedCode, mode); // 2. tunggu API
 
     Navigator.of(context).pop(); // 3. tutup loading dialog
 
     if (success) {
-      _showSuccessDialog(context, "${_selectedAttendanceTab} berhasil!"); // 4. tampilkan dialog sukses
+      _showSuccessDialog(
+        context,
+        "${_selectedAttendanceTab} berhasil!",
+      ); // 4. tampilkan dialog sukses
+      await _loadCheckinStatus();
     } else {
       _showMessage("Gagal menyimpan absensi."); // 4. atau error message
     }
-
   }
 
   void _showMessage(String message) {
@@ -282,6 +310,103 @@ void _showSuccessDialog(BuildContext context, String message) {
           ),
         ),
         margin: EdgeInsets.all(10),
+      ),
+    );
+  }
+
+  void _showComingSoonTooltip() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: 40),
+          padding: EdgeInsets.all(20),
+          decoration: ShapeDecoration(
+            color: Colors.white,
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 16,
+                cornerSmoothing: 1,
+              ),
+            ),
+            shadows: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: ShapeDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: SmoothRectangleBorder(
+                    borderRadius: SmoothBorderRadius(
+                      cornerRadius: 16,
+                      cornerSmoothing: 1,
+                    ),
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    HugeIcons.strokeRoundedTime04,
+                    color: Colors.orange,
+                    size: 32,
+                  ),
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Coming Soon',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Fitur ini akan segera tersedia untuk semua pengguna',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: SmoothRectangleBorder(
+                      borderRadius: SmoothBorderRadius(
+                        cornerRadius: 10,
+                        cornerSmoothing: 0.8,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    'Mengerti',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -326,7 +451,11 @@ void _showSuccessDialog(BuildContext context, String message) {
                 ),
               ),
             ),
-            child: Icon(HugeIcons.strokeRoundedNotification02, color: _primaryColor, size: 20),
+            child: Icon(
+              HugeIcons.strokeRoundedNotification02,
+              color: _primaryColor,
+              size: 20,
+            ),
           ),
           onPressed: () {},
         ),
@@ -340,7 +469,7 @@ void _showSuccessDialog(BuildContext context, String message) {
       case 0:
         return _buildHomeContent();
       case 1:
-        return _buildComingSoonPage("Izin");
+        return AttendanceHistoryPage();
       case 2:
         return TicketSupportPage();
       case 3:
@@ -360,7 +489,7 @@ void _showSuccessDialog(BuildContext context, String message) {
           SizedBox(height: 20),
           _buildAttendanceCard(), // New attendance card with check-in/check-out tabs
           SizedBox(height: 20),
-          _buildAttendanceStatsCard(),
+          _buildHRMShortcutsCard(),
           SizedBox(height: 20),
           _buildRecentAttendanceCard(),
           SizedBox(height: 20),
@@ -379,10 +508,7 @@ void _showSuccessDialog(BuildContext context, String message) {
             cornerRadius: 20,
             cornerSmoothing: 1,
           ),
-          side: BorderSide(
-            color: Colors.grey.shade100,
-            width: 2,
-          ),
+          side: BorderSide(color: Colors.grey.shade100, width: 2),
         ),
       ),
       child: Row(
@@ -401,7 +527,8 @@ void _showSuccessDialog(BuildContext context, String message) {
             ),
             child: Center(
               child: Text(
-                (_userData['adminname'] != null && _userData['adminname'].isNotEmpty)
+                (_userData['adminname'] != null &&
+                        _userData['adminname'].isNotEmpty)
                     ? _userData['adminname'].substring(0, 1)
                     : '?', // fallback kalau kosong/null
                 style: GoogleFonts.outfit(
@@ -479,10 +606,7 @@ void _showSuccessDialog(BuildContext context, String message) {
             cornerRadius: 20,
             cornerSmoothing: 1,
           ),
-          side: BorderSide(
-            color: Colors.grey.shade100,
-            width: 2,
-          ),
+          side: BorderSide(color: Colors.grey.shade100, width: 2),
         ),
       ),
       child: Column(
@@ -539,7 +663,10 @@ void _showSuccessDialog(BuildContext context, String message) {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
+                        DateFormat(
+                          'EEEE, d MMMM yyyy',
+                          'id_ID',
+                        ).format(DateTime.now()),
                         style: GoogleFonts.outfit(
                           fontSize: 14,
                           color: Colors.black54,
@@ -552,7 +679,11 @@ void _showSuccessDialog(BuildContext context, String message) {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _startAttendanceFlow,
+                    onPressed: (
+                      (_selectedAttendanceTab == 'Masuk' && _checkedInToday) ||
+                      (_selectedAttendanceTab == 'Pulang' && _checkedOutToday) ||
+                      _loadingCheckinStatus
+                    ) ? null : _startAttendanceFlow,
                     icon: Icon(
                       _selectedAttendanceTab == 'Masuk'
                           ? HugeIcons.strokeRoundedFingerprintScan
@@ -560,7 +691,11 @@ void _showSuccessDialog(BuildContext context, String message) {
                       size: 20,
                     ),
                     label: Text(
-                      _selectedAttendanceTab,
+                      _selectedAttendanceTab == 'Masuk' && _checkedInToday && _jamIn != null
+                          ? 'Sudah Check-in: $_jamIn'
+                          : _selectedAttendanceTab == 'Pulang' && _checkedOutToday && _jamOut != null
+                              ? 'Sudah Check-out: $_jamOut'
+                              : _selectedAttendanceTab,
                       style: GoogleFonts.outfit(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
@@ -587,7 +722,11 @@ void _showSuccessDialog(BuildContext context, String message) {
     );
   }
 
-  Widget _buildAttendanceTabButton(String label, IconData icon, bool isSelected) {
+  Widget _buildAttendanceTabButton(
+    String label,
+    IconData icon,
+    bool isSelected,
+  ) {
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -628,6 +767,144 @@ void _showSuccessDialog(BuildContext context, String message) {
     );
   }
 
+  Widget _buildHRMShortcutsCard() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Text(
+          'Menu HRM',
+          style: GoogleFonts.outfit(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+      Container(
+        padding: EdgeInsets.all(20),
+        decoration: ShapeDecoration(
+          color: Colors.white,
+          shape: SmoothRectangleBorder(
+            borderRadius: SmoothBorderRadius(
+              cornerRadius: 20,
+              cornerSmoothing: 1,
+            ),
+            side: BorderSide(color: Colors.grey.shade100, width: 2),
+          ),
+        ),
+        child: Column(
+          children: [
+            // First row - 4 items
+            Row(
+              children: [
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Izin',
+                    HugeIcons.strokeRoundedCalendarRemove01,
+                    Colors.blue,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Slip Gaji',
+                    HugeIcons.strokeRoundedMoney01,
+                    Colors.green,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Kehadiran',
+                    HugeIcons.strokeRoundedFile01,
+                    Colors.orange,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Lembur',
+                    HugeIcons.strokeRoundedClock03,
+                    Colors.purple,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            // Second row - 4 items
+            Row(
+              children: [
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Reimburse',
+                    HugeIcons.strokeRoundedReceiptDollar,
+                    Colors.teal,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Kinerja',
+                    HugeIcons.strokeRoundedTarget01,
+                    Colors.red,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Absensi',
+                    HugeIcons.strokeRoundedCheckmarkCircle01,
+                    Colors.indigo,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildShortcutItem(
+                    'Karyawan',
+                    HugeIcons.strokeRoundedUser,
+                    Colors.pink,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildShortcutItem(String title, IconData icon, Color color) {
+  return GestureDetector(
+    onTap: () {
+      _showComingSoonTooltip();
+    },
+    child: Column(
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 24,
+        ),
+        SizedBox(height: 6),
+        Text(
+          title,
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    ),
+  );
+}
+
   Widget _buildAttendanceStatsCard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,19 +929,32 @@ void _showSuccessDialog(BuildContext context, String message) {
                 cornerRadius: 20,
                 cornerSmoothing: 1,
               ),
-              side: BorderSide(
-                color: Colors.grey.shade100,
-                width: 2,
-              ),
+              side: BorderSide(color: Colors.grey.shade100, width: 2),
             ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem('Hadir', _attendanceStats['Hadir'] ?? 0, Colors.green),
-              _buildStatItem('Terlambat', _attendanceStats['Terlambat'] ?? 0, Colors.orange),
-              _buildStatItem('Izin', _attendanceStats['Izin'] ?? 0, Colors.blue),
-              _buildStatItem('Sakit', _attendanceStats['Sakit'] ?? 0, Colors.red),
+              _buildStatItem(
+                'Hadir',
+                _attendanceStats['Hadir'] ?? 0,
+                Colors.green,
+              ),
+              _buildStatItem(
+                'Terlambat',
+                _attendanceStats['Terlambat'] ?? 0,
+                Colors.orange,
+              ),
+              _buildStatItem(
+                'Izin',
+                _attendanceStats['Izin'] ?? 0,
+                Colors.blue,
+              ),
+              _buildStatItem(
+                'Sakit',
+                _attendanceStats['Sakit'] ?? 0,
+                Colors.red,
+              ),
             ],
           ),
         ),
@@ -701,10 +991,7 @@ void _showSuccessDialog(BuildContext context, String message) {
         SizedBox(height: 8),
         Text(
           label,
-          style: GoogleFonts.outfit(
-            fontSize: 12,
-            color: Colors.black54,
-          ),
+          style: GoogleFonts.outfit(fontSize: 12, color: Colors.black54),
         ),
       ],
     );
@@ -733,26 +1020,24 @@ void _showSuccessDialog(BuildContext context, String message) {
                 cornerRadius: 20,
                 cornerSmoothing: 1,
               ),
-              side: BorderSide(
-                color: Colors.grey.shade100,
-                width: 2,
-              ),
+              side: BorderSide(color: Colors.grey.shade100, width: 2),
             ),
           ),
           child: ListView.separated(
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
             itemCount: _recentAttendance.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              color: Colors.grey.shade100,
-              thickness: 2,
-            ),
+            separatorBuilder:
+                (context, index) => Divider(
+                  height: 1,
+                  color: Colors.grey.shade100,
+                  thickness: 2,
+                ),
             itemBuilder: (context, index) {
               final item = _recentAttendance[index];
               IconData statusIcon;
               Color statusColor;
-              
+
               switch (item['status']) {
                 case 'Hadir':
                   statusIcon = HugeIcons.strokeRoundedFingerPrintCheck;
@@ -774,7 +1059,7 @@ void _showSuccessDialog(BuildContext context, String message) {
                   statusIcon = HugeIcons.strokeRoundedHelpCircle;
                   statusColor = Colors.grey;
               }
-              
+
               return ListTile(
                 leading: Container(
                   width: 40,
@@ -832,20 +1117,16 @@ void _showSuccessDialog(BuildContext context, String message) {
         TextButton(
           onPressed: () {
             setState(() {
-              _selectedIndex = 2;
+              _selectedIndex = 1;
             });
           },
-          style: TextButton.styleFrom(
-            foregroundColor: _primaryColor,
-          ),
+          style: TextButton.styleFrom(foregroundColor: _primaryColor),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 'Lihat Semua Riwayat',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
               ),
               SizedBox(width: 4),
               Icon(HugeIcons.strokeRoundedArrowRight02, size: 16),
@@ -890,10 +1171,7 @@ void _showSuccessDialog(BuildContext context, String message) {
           SizedBox(height: 8),
           Text(
             'Fitur ini akan segera tersedia',
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              color: Colors.black54,
-            ),
+            style: GoogleFonts.outfit(fontSize: 16, color: Colors.black54),
           ),
           SizedBox(height: 32),
           ElevatedButton(
@@ -915,9 +1193,7 @@ void _showSuccessDialog(BuildContext context, String message) {
             ),
             child: Text(
               'Kembali ke Beranda',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -930,10 +1206,7 @@ void _showSuccessDialog(BuildContext context, String message) {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
-          top: BorderSide(
-            color: Colors.grey.withOpacity(0.2),
-            width: 1.0,
-          ),
+          top: BorderSide(color: Colors.grey.withOpacity(0.2), width: 1.0),
         ),
       ),
       child: Theme(
@@ -944,6 +1217,11 @@ void _showSuccessDialog(BuildContext context, String message) {
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) {
+              // Check if trying to access ticket page and user is not 'wahoy'
+              if (index == 2 && _userData['username'] != 'wahoy') {
+                  _showComingSoonTooltip();
+                return;
+              }
             _animateIcon(index);
             setState(() {
               _selectedIndex = index;
@@ -957,18 +1235,16 @@ void _showSuccessDialog(BuildContext context, String message) {
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
-          unselectedLabelStyle: GoogleFonts.outfit(
-            fontSize: 12,
-          ),
+          unselectedLabelStyle: GoogleFonts.outfit(fontSize: 12),
           elevation: 0,
           showSelectedLabels: true,
           showUnselectedLabels: true,
           enableFeedback: false,
           items: [
             _buildNavItem(0, HugeIcons.strokeRoundedHome01, 'Beranda'),
-            _buildNavItem(1, HugeIcons.strokeRoundedCalendarRemove01, 'Riwayat'),
-            _buildNavItem(2, HugeIcons.strokeRoundedFile01, 'Tiket'),
-            _buildNavItem(3, HugeIcons.strokeRoundedUser, 'Profil'),
+            _buildNavItem(1, HugeIcons.strokeRoundedCalendar03, 'Riwayat'),
+            _buildNavItem(2, HugeIcons.strokeRoundedFile01, 'Tiket', isEnabled: _userData['username'] == 'wahoy'),
+            _buildNavItem(3, HugeIcons.strokeRoundedUserSquare, 'Profil'),
           ],
         ),
       ),
@@ -981,12 +1257,25 @@ void _showSuccessDialog(BuildContext context, String message) {
     }
   }
 
-  BottomNavigationBarItem _buildNavItem(int index, IconData icon, String label) {
+  BottomNavigationBarItem _buildNavItem(
+    int index,
+    IconData icon,
+    String label, {
+    bool isEnabled = true,
+  }) {
     return BottomNavigationBarItem(
-      icon: ScaleIcon(
-        key: _iconKeys[index],
-        icon: icon,
-        color: _selectedIndex == index ? _primaryColor : Colors.grey,
+      icon: GestureDetector(
+        onTap: !isEnabled ? () {
+          // Show tooltip for disabled items
+          _showComingSoonTooltip();
+        } : null,
+        child: ScaleIcon(
+          key: _iconKeys[index],
+          icon: icon,
+          color: !isEnabled 
+              ? Colors.grey.shade400
+              : (_selectedIndex == index ? _primaryColor : Colors.grey),
+        ),
       ),
       label: label,
     );
@@ -998,14 +1287,11 @@ class QRScanDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Color(0xFF6200EE);
-    
+    final primaryColor = Color(0xFF143CFF);
+
     return Dialog(
       shape: SmoothRectangleBorder(
-        borderRadius: SmoothBorderRadius(
-          cornerRadius: 20,
-          cornerSmoothing: 1,
-        ),
+        borderRadius: SmoothBorderRadius(cornerRadius: 20, cornerSmoothing: 1),
       ),
       backgroundColor: Colors.white,
       child: Padding(
@@ -1029,17 +1315,17 @@ class QRScanDialog extends StatelessWidget {
                     controller.stop();
                     Navigator.of(context).pop();
                   },
-                  icon: Icon(HugeIcons.strokeRoundedCancelCircle, color: Colors.black54),
+                  icon: Icon(
+                    HugeIcons.strokeRoundedCancelCircle,
+                    color: Colors.black54,
+                  ),
                 ),
               ],
             ),
             SizedBox(height: 8),
             Text(
               "Arahkan kamera ke QR Code untuk absensi",
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
+              style: GoogleFonts.outfit(fontSize: 14, color: Colors.black54),
             ),
             SizedBox(height: 16),
             Container(
@@ -1078,9 +1364,7 @@ class QRScanDialog extends StatelessWidget {
                 icon: Icon(HugeIcons.strokeRoundedRefresh, size: 18),
                 label: Text(
                   "Coba Lagi",
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                 ),
                 onPressed: () {
                   // Reset scanner
@@ -1107,14 +1391,10 @@ class QRScanDialog extends StatelessWidget {
                   controller.stop();
                   Navigator.of(context).pop();
                 },
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.black54,
-                ),
+                style: TextButton.styleFrom(foregroundColor: Colors.black54),
                 child: Text(
                   "Batal",
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                 ),
               ),
             ),
@@ -1129,17 +1409,15 @@ class ScaleIcon extends StatefulWidget {
   final IconData icon;
   final Color color;
 
-  const ScaleIcon({
-    Key? key,
-    required this.icon,
-    required this.color,
-  }) : super(key: key);
+  const ScaleIcon({Key? key, required this.icon, required this.color})
+    : super(key: key);
 
   @override
   _ScaleIconState createState() => _ScaleIconState();
 }
 
-class _ScaleIconState extends State<ScaleIcon> with SingleTickerProviderStateMixin {
+class _ScaleIconState extends State<ScaleIcon>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -1150,23 +1428,14 @@ class _ScaleIconState extends State<ScaleIcon> with SingleTickerProviderStateMix
       duration: Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _animation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.8),
-        weight: 1,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.8, end: 1.0),
-        weight: 1,
-      ),
-    ]).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 0.8), weight: 1),
+      TweenSequenceItem(tween: Tween<double>(begin: 0.8, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
- void playAnimation() {
+  void playAnimation() {
     _controller.forward(from: 0.0);
   }
 
@@ -1183,10 +1452,7 @@ class _ScaleIconState extends State<ScaleIcon> with SingleTickerProviderStateMix
       builder: (context, child) {
         return Transform.scale(
           scale: _animation.value,
-          child: Icon(
-            widget.icon,
-            color: widget.color,
-          ),
+          child: Icon(widget.icon, color: widget.color),
         );
       },
     );

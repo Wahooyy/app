@@ -5,7 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:io';
 
 class AuthService {
-  final String apiUrl = 'https://192.168.4.25/auth_app_api'; // Make sure this is correct
+  final String apiUrl = 'https://192.168.4.25/auth_app_api';
   final DeviceInfoPlugin _deviceInfoPlugin = DeviceInfoPlugin();
   final Uuid _uuid = Uuid();
 

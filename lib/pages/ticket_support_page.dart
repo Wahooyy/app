@@ -11,7 +11,8 @@ class TicketSupportPage extends StatefulWidget {
 }
 
 class _TicketSupportPageState extends State<TicketSupportPage> {
-  final Color _primaryColor = Color(0xFF6200EE);
+  final Color _primaryColor = Color(0xFF143CFF);
+  bool _showValidation = false;
 
   // Dummy ticket data
   List<Map<String, dynamic>> _tickets = [
@@ -68,6 +69,17 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
   File? _commentImage;
   final _commentController = TextEditingController();
 
+  // Controllers for text fields
+  final Map<String, TextEditingController> _controllers = {};
+
+  @override
+  void dispose() {
+    // Dispose all controllers
+    _controllers.values.forEach((controller) => controller.dispose());
+    _commentController.dispose();
+    super.dispose();
+  }
+
   void _showCreateTicketSheet() {
     setState(() {
       _name = null;
@@ -94,152 +106,160 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
   }
 
   Widget _buildTicketForm() {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: SmoothRectangleBorder(
-          borderRadius: SmoothBorderRadius(
-            cornerRadius: 28,
-            cornerSmoothing: 1,
+    return StatefulBuilder(
+      builder: (context, setState) => Container(
+        padding: EdgeInsets.all(20),
+        decoration: ShapeDecoration(
+          color: Colors.white,
+          shape: SmoothRectangleBorder(
+            borderRadius: SmoothBorderRadius(
+              cornerRadius: 28,
+              cornerSmoothing: 1,
+            ),
           ),
         ),
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text('Buat Tiket Baru',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 18),
-              _buildTextField('Nama', (v) => _name = v),
-              SizedBox(height: 12),
-              _buildTextField('WhatsApp', (v) => _whatsapp = v, keyboardType: TextInputType.phone),
-              SizedBox(height: 12),
-              _buildTextField('Judul', (v) => _title = v),
-              SizedBox(height: 12),
-              _buildTextField('Deskripsi', (v) => _description = v, maxLines: 3),
-              SizedBox(height: 12),
-              // Category
-              _buildCustomModalField(
-                label: 'Kategori',
-                value: _category,
-                enabled: true,
-                placeholder: 'Pilih Kategori',
-                options: _categories,
-                onSelected: (val) {
-                  setState(() {
-                    _category = val;
-                    _subCategory = null;
-                    _subSubCategory = null;
-                  });
-                },
-              ),
-              SizedBox(height: 12),
-              // Sub Kategori
-              _buildCustomModalField(
-                label: 'Sub Kategori',
-                value: _subCategory,
-                enabled: _category == 'Hardware',
-                placeholder: _category == 'Hardware' ? 'Pilih Sub Kategori' : 'Tidak ada sub kategori',
-                options: _category == 'Hardware' ? _hardwareSubCategories : [],
-                onSelected: (val) {
-                  setState(() {
-                    _subCategory = val;
-                    _subSubCategory = null;
-                  });
-                },
-              ),
-              SizedBox(height: 12),
-              // Sub Sub Kategori
-              _buildCustomModalField(
-                label: 'Sub Sub Kategori',
-                value: _subSubCategory,
-                enabled: _category == 'Hardware' && _subCategory != null,
-                placeholder: (_category == 'Hardware' && _subCategory != null) ? 'Pilih Sub Sub Kategori' : 'Tidak ada sub sub kategori',
-                options: _category == 'Hardware'
-                    ? (_subCategory == 'Perbaikan'
-                        ? _perbaikanSubSub
-                        : _subCategory == 'Pemasangan'
-                            ? _pemasanganSubSub
-                            : _subCategory == 'Penggantian'
-                                ? _penggantianSubSub
-                                : [])
-                    : [],
-                onSelected: (val) {
-                  setState(() {
-                    _subSubCategory = val;
-                  });
-                },
-              ),
-              SizedBox(height: 12),
-              // Priority
-              _buildCustomModalField(
-                label: 'Prioritas',
-                value: _priority,
-                enabled: true,
-                placeholder: 'Pilih Prioritas',
-                options: _priorities,
-                onSelected: (val) => setState(() => _priority = val),
-              ),
-              SizedBox(height: 12),
-              _buildImagePicker(),
-              SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: SmoothRectangleBorder(
-                      borderRadius: SmoothBorderRadius(
-                        cornerRadius: 14,
-                        cornerSmoothing: 1,
-                      ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    padding: EdgeInsets.symmetric(vertical: 16),
                   ),
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _formKey.currentState!.save();
-                      // Add ticket to list (dummy)
-                      setState(() {
-                        _tickets.insert(0, {
-                          'title': _title,
-                          'category': _category,
-                          'subCategory': _subCategory,
-                          'subSubCategory': _subSubCategory,
-                          'priority': _priority,
-                          'status': 'Open',
-                          'date': DateTime.now().toString().substring(0, 10),
-                        });
-                      });
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: Text('Kirim Tiket', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                 ),
-              ),
-            ],
+                Text('Buat Tiket Baru',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 18),
+                _buildTextField('Nama', (v) => _name = v),
+                SizedBox(height: 12),
+                _buildTextField('WhatsApp', (v) => _whatsapp = v, keyboardType: TextInputType.phone),
+                SizedBox(height: 12),
+                _buildTextField('Judul', (v) => _title = v),
+                SizedBox(height: 12),
+                _buildTextField('Deskripsi', (v) => _description = v, maxLines: 3),
+                SizedBox(height: 12),
+                // Category
+                _buildCustomModalField(
+                  label: 'Kategori',
+                  value: _category,
+                  enabled: true,
+                  placeholder: 'Pilih Kategori',
+                  options: _categories,
+                  onSelected: (val) {
+                    setState(() {
+                      _category = val;
+                      _subCategory = null;
+                      _subSubCategory = null;
+                    });
+                  },
+                ),
+                SizedBox(height: 12),
+                // Sub Kategori
+                _buildCustomModalField(
+                  label: 'Sub Kategori',
+                  value: _subCategory,
+                  enabled: _category == 'Hardware',
+                  placeholder: _category == 'Hardware' ? 'Pilih Sub Kategori' : 'Tidak ada sub kategori',
+                  options: _category == 'Hardware' ? _hardwareSubCategories : [],
+                  onSelected: (val) {
+                    setState(() {
+                      _subCategory = val;
+                      _subSubCategory = null;
+                    });
+                  },
+                ),
+                SizedBox(height: 12),
+                // Sub Sub Kategori
+                _buildCustomModalField(
+                  label: 'Sub Sub Kategori',
+                  value: _subSubCategory,
+                  enabled: _category == 'Hardware' && _subCategory != null,
+                  placeholder: (_category == 'Hardware' && _subCategory != null) ? 'Pilih Sub Sub Kategori' : 'Tidak ada sub sub kategori',
+                  options: _category == 'Hardware'
+                      ? (_subCategory == 'Perbaikan'
+                          ? _perbaikanSubSub
+                          : _subCategory == 'Pemasangan'
+                              ? _pemasanganSubSub
+                              : _subCategory == 'Penggantian'
+                                  ? _penggantianSubSub
+                                  : [])
+                      : [],
+                  onSelected: (val) {
+                    setState(() {
+                      _subSubCategory = val;
+                    });
+                  },
+                ),
+                SizedBox(height: 12),
+                // Priority
+                _buildCustomModalField(
+                  label: 'Prioritas',
+                  value: _priority,
+                  enabled: true,
+                  placeholder: 'Pilih Prioritas',
+                  options: _priorities,
+                  onSelected: (val) => setState(() => _priority = val),
+                ),
+                SizedBox(height: 12),
+                _buildImagePicker(),
+                SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: SmoothRectangleBorder(
+                        borderRadius: SmoothBorderRadius(
+                          cornerRadius: 14,
+                          cornerSmoothing: 1,
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showValidation = true;
+                      });
+                      
+                      final isValid = _formKey.currentState?.validate() ?? false;
+                      if (isValid) {
+                        _formKey.currentState!.save();
+                        // Add ticket to list (dummy)
+                        setState(() {
+                          _tickets.insert(0, {
+                            'title': _title,
+                            'category': _category,
+                            'subCategory': _subCategory,
+                            'subSubCategory': _subSubCategory,
+                            'priority': _priority,
+                            'status': 'Open',
+                            'date': DateTime.now().toString().substring(0, 10),
+                          });
+                        });
+                        _resetForm();
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: Text('Kirim Tiket', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -247,31 +267,78 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
   }
 
   Widget _buildTextField(String label, Function(String?) onSaved, {TextInputType keyboardType = TextInputType.text, int maxLines = 1}) {
-    return TextFormField(
-      style: GoogleFonts.outfit(),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.outfit(color: Colors.black54),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: _primaryColor),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      validator: (v) => (v == null || v.isEmpty) ? 'Wajib diisi' : null,
-      onSaved: onSaved,
+    // Create or get existing controller
+    if (!_controllers.containsKey(label)) {
+      _controllers[label] = TextEditingController();
+    }
+    final controller = _controllers[label]!;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        final hasError = _showValidation && controller.text.isEmpty;
+        
+        return Container(
+          decoration: ShapeDecoration(
+            color: Colors.white,
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 14,
+                cornerSmoothing: 1,
+              ),
+              side: BorderSide(
+                color: hasError ? Colors.red.shade400 : Colors.grey.shade200,
+                width: 1.5,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(left: 16, top: 12, right: 16),
+                child: Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: hasError ? Colors.red.shade400 : Colors.black54,
+                  ),
+                ),
+              ),
+              TextFormField(
+                controller: controller,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  border: InputBorder.none,
+                  hintText: 'Masukkan $label',
+                  hintStyle: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: Colors.black38,
+                  ),
+                ),
+                keyboardType: keyboardType,
+                maxLines: maxLines,
+                onChanged: (value) {
+                  if (value.isNotEmpty && hasError) {
+                    setState(() {});
+                  }
+                },
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return '';
+                  }
+                  return null;
+                },
+                onSaved: onSaved,
+              ),
+            ],
+          ),
+        );
+      }
     );
   }
 
@@ -306,7 +373,7 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
                               children: [
                                 Icon(HugeIcons.strokeRoundedImage01, color: _primaryColor, size: 32),
                                 SizedBox(height: 8),
-                                Text('Upload Foto', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87)),
+                                Text('Upload Foto (opsional)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87)),
                                 SizedBox(height: 4),
                                 Text('Format: JPG, PNG. Max 2MB', style: GoogleFonts.outfit(fontSize: 12, color: Colors.black54)),
                               ],
@@ -423,7 +490,7 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
             SizedBox(height: 8),
             Row(
               children: [
-                Icon(HugeIcons.strokeRoundedCalendarRemove01, color: Colors.grey[400], size: 16),
+                Icon(HugeIcons.strokeRoundedCalendar03, color: Colors.grey[400], size: 16),
                 SizedBox(width: 6),
                 Text(ticket['date'] ?? '-', style: GoogleFonts.outfit(fontSize: 12, color: Colors.black54)),
                 SizedBox(width: 16),
@@ -571,10 +638,26 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
     );
   }
 
+  void _resetForm() {
+    setState(() {
+      _showValidation = false;
+      _controllers.values.forEach((controller) => controller.clear());
+      _name = null;
+      _whatsapp = null;
+      _title = null;
+      _description = null;
+      _category = null;
+      _subCategory = null;
+      _subSubCategory = null;
+      _priority = null;
+      _imageFile = null;
+    });
+  }
+
   @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    // Initialize controllers if needed
   }
 
   Widget _buildTicketCard(Map<String, dynamic> ticket) {
@@ -643,7 +726,7 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
             SizedBox(height: 10),
             Row(
               children: [
-                Icon(HugeIcons.strokeRoundedCalendarRemove01, color: Colors.grey[400], size: 16),
+                Icon(HugeIcons.strokeRoundedCalendar03, color: Colors.grey[400], size: 16),
                 SizedBox(width: 6),
                 Text(ticket['date'] ?? '-', style: GoogleFonts.outfit(fontSize: 12, color: Colors.black54)),
                 SizedBox(width: 16),
@@ -738,111 +821,152 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
     required List<String> options,
     required Function(String) onSelected,
   }) {
-    return GestureDetector(
-      onTap: enabled
-          ? () async {
-              final selected = await showModalBottomSheet<String>(
-                context: context,
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-                builder: (context) => _buildOptionSheet(label, options, value),
-              );
-              if (selected != null) onSelected(selected);
-            }
-          : null,
-      child: AbsorbPointer(
-        child: TextFormField(
-          style: GoogleFonts.outfit(),
-          readOnly: true,
-          enabled: enabled,
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: GoogleFonts.outfit(color: Colors.black54),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+    return StatefulBuilder(
+      builder: (context, setState) {
+        final hasError = enabled && _showValidation && value == null;
+
+        return Container(
+          decoration: ShapeDecoration(
+            color: Colors.white,
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 14,
+                cornerSmoothing: 1,
+              ),
+              side: BorderSide(
+                color: hasError ? Colors.red.shade400 : Colors.grey.shade200,
+                width: 1.5,
+              ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: _primaryColor),
-            ),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            suffixIcon: Icon(HugeIcons.strokeRoundedArrowDown01, color: Colors.black54),
           ),
-          controller: TextEditingController(text: value ?? ''),
-          validator: (v) => (enabled && (v == null || v.isEmpty)) ? 'Wajib dipilih' : null,
-        ),
-      ),
+          child: Material(
+            color: Colors.white,
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 14,
+                cornerSmoothing: 1,
+              ),
+            ),
+            child: InkWell(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 14,
+                cornerSmoothing: 1,
+              ),
+              onTap: enabled
+                  ? () {
+                      showModalBottomSheet<String>(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (context) => _buildOptionSheet(label, options, value),
+                      ).then((selected) {
+                        if (selected != null) {
+                          onSelected(selected);
+                          setState(() {});
+                        }
+                      });
+                    }
+                  : null,
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: hasError ? Colors.red.shade400 : Colors.black54,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            value ?? placeholder,
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              color: value != null ? Colors.black87 : Colors.black38,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          HugeIcons.strokeRoundedArrowDown01,
+                          color: hasError ? Colors.red.shade400 : Colors.black54,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
     );
   }
 
   Widget _buildOptionSheet(String label, List<String> options, String? value) {
-    return Container(
-      padding: EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 24 + MediaQuery.of(context).viewInsets.bottom),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: SmoothRectangleBorder(
-          borderRadius: SmoothBorderRadius(
-            cornerRadius: 28,
-            cornerSmoothing: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
+    return StatefulBuilder(
+      builder: (context, setState) => Container(
+        padding: EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 24 + MediaQuery.of(context).viewInsets.bottom),
+        decoration: ShapeDecoration(
+          color: Colors.white,
+          shape: SmoothRectangleBorder(
+            borderRadius: SmoothBorderRadius(
+              cornerRadius: 28,
+              cornerSmoothing: 1,
             ),
           ),
-          Text('Pilih $label', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
-          SizedBox(height: 12),
-          ...options.map((e) => InkWell(
-                onTap: () => Navigator.pop(context, e),
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  width: double.infinity,
-                  margin: EdgeInsets.only(bottom: 8),
-                  padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: value == e ? _primaryColor.withOpacity(0.08) : Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: value == e ? _primaryColor : Colors.grey.shade100,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(e, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.black87))),
-                      if (value == e)
-                        Icon(Icons.check_circle, color: _primaryColor, size: 20),
-                    ],
-                  ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              )),
-        ],
+              ),
+            ),
+            Text('Pilih $label', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+            SizedBox(height: 12),
+            ...options.map((e) => InkWell(
+                  onTap: () {
+                    Navigator.pop(context, e);
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: double.infinity,
+                    margin: EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: value == e ? _primaryColor.withOpacity(0.08) : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: value == e ? _primaryColor : Colors.grey.shade100,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(e, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.black87))),
+                        if (value == e)
+                          Icon(Icons.check_circle, color: _primaryColor, size: 20),
+                      ],
+                    ),
+                  ),
+                )),
+          ],
+        ),
       ),
     );
   }

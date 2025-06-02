@@ -10,7 +10,7 @@
 
     <application
         android:usesCleartextTraffic="true"
-        android:label="Kahaptex HR"
+        android:label="MyKahaptex"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

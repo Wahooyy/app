@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'pages/sign_in_page.dart';
-import 'pages/sign_up_page.dart';
 import 'pages/home_page.dart';
 
 void main() {
@@ -29,7 +28,6 @@ class AuthApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => LoginPage(),
-        '/signup': (context) => SignUpPage(),
         '/home': (context) => HomePage(),
       },
     );

@@ -6,16 +6,19 @@ import '../services/auth_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:figma_squircle/figma_squircle.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:uuid/uuid.dart';
 
 class LoginPage extends StatefulWidget {
   @override
   _LoginPageState createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _auth = LocalAuthentication();
+  final _uuid = Uuid();
   bool _isLoading = false;
   bool _obscurePassword = true;
   late AnimationController _animationController;
@@ -52,7 +55,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           message,
           style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
         ),
-        backgroundColor: Color(0xFF6200EE),
+        backgroundColor: Color(0xFF143CFF),
         behavior: SnackBarBehavior.floating,
         shape: SmoothRectangleBorder(
           borderRadius: SmoothBorderRadius(
@@ -78,21 +81,132 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     try {
       final success = await AuthService.login(username, password);
       if (success) {
-        Navigator.pushReplacementNamed(context, '/home');
+        // Get device info and device ID
+        final deviceInfo = DeviceInfoPlugin();
+        String deviceId = '';
+        bool isAndroid = false;
+        bool isIOS = false;
+        if (Platform.isAndroid) {
+          AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+          deviceId = androidInfo.id;
+          isAndroid = true;
+        } else if (Platform.isIOS) {
+          IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+          deviceId = iosInfo.identifierForVendor ?? '';
+          isIOS = true;
+        } else {
+          _showMessage('Unsupported device');
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        // Check if biometric is registered
+        final userId = AuthService.getUserId();
+        if (userId == null) {
+          _showMessage('User ID not found.');
+          return;
+        }
+        final token = await AuthService.getFingerprintToken(deviceId, userId);
+        if (token != null && token.isNotEmpty) {
+          // Biometric already registered, go to home
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // Prompt biometric registration
+          bool registered = await _registerBiometric(
+            deviceId,
+            username,
+            password,
+          );
+          if (registered) {
+            _showMessage('Biometric registered successfully!');
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            _showMessage('Biometric registration failed or cancelled.');
+          }
+        }
       } else {
         _showMessage('Login failed. Please check your credentials.');
       }
     } catch (e) {
-      _showMessage('An error occurred. Please try again.');
+      _showMessage('Ada error. Coba lagi nanti.');
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
+  Future<bool> _registerBiometric(
+    String deviceId,
+    String username,
+    String password,
+  ) async {
+    try {
+      // Check available biometrics
+      bool canCheckBiometrics = await _auth.canCheckBiometrics;
+      if (!canCheckBiometrics) {
+        _showMessage('Device does not support biometric authentication');
+        return false;
+      }
+      List<BiometricType> availableBiometrics =
+          await _auth.getAvailableBiometrics();
+      BiometricType? selectedType;
+      // Android: Prefer fingerprint, fallback to face
+      // iOS: Prefer face, fallback to fingerprint, then face
+      if (Platform.isAndroid) {
+        if (availableBiometrics.contains(BiometricType.fingerprint)) {
+          selectedType = BiometricType.fingerprint;
+        } else if (availableBiometrics.contains(BiometricType.face)) {
+          selectedType = BiometricType.face;
+        }
+      } else if (Platform.isIOS) {
+        if (availableBiometrics.contains(BiometricType.face)) {
+          selectedType = BiometricType.face;
+        } else if (availableBiometrics.contains(BiometricType.fingerprint)) {
+          selectedType = BiometricType.fingerprint;
+        } else if (availableBiometrics.contains(BiometricType.strong)) {
+          selectedType = BiometricType.strong;
+        }
+      }
+      if (availableBiometrics.isEmpty) {
+        _showMessage('No supported biometric found.');
+        return false;
+      }
+      // Prompt user for biometric registration
+      bool authenticated = await _auth.authenticate(
+        localizedReason: 'Register your biometric for secure login',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+      if (!authenticated) {
+        _showMessage('Biometric registration failed or cancelled.');
+        return false;
+      }
+      // Generate a fake fingerprint token (in real app, backend should generate this)
+      String fingerprintToken = _uuid.v4();  // or use a different method to generate a unique token
+      final userId = AuthService.getUserId();
+      if (userId == null) {
+        _showMessage('User ID not found.');
+        return false;
+      }
+      // Register biometric with backend
+      bool registered = await AuthService.registerWithFingerprint(
+        userId,
+        fingerprintToken,
+        deviceId,
+      );
+      return registered;
+    } catch (e) {
+      _showMessage('Error during biometric registration.');
+      return false;
+    }
+  }
+
   Future<void> _handleFingerprintLogin() async {
     setState(() => _isLoading = true);
-    
+
     try {
+      // Step 1: Biometric Authentication
       final authenticated = await _auth.authenticate(
         localizedReason: 'Authenticate to continue',
         options: const AuthenticationOptions(biometricOnly: true),
@@ -104,13 +218,12 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         return;
       }
 
-      // Get device info and a valid device ID
+      // Step 2: Get Device ID
       final deviceInfo = DeviceInfoPlugin();
       String deviceId = '';
 
       if (Platform.isAndroid) {
         AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-        // deviceId = androidInfo.id ?? 'unknown';
         deviceId = androidInfo.id;
       } else if (Platform.isIOS) {
         IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
@@ -121,32 +234,41 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         return;
       }
 
-      // Get fingerprint token based on device ID from database
-      final token = await AuthService.getFingerprintToken(deviceId);
+      // Step 3: Get Fingerprint Data (token + user_id)
+      final fingerprintData = await AuthService.getFingerprintData(deviceId);
 
-      // ignore: unnecessary_null_comparison
-      if (token == null) {
+      if (fingerprintData == null ||
+          fingerprintData['fingerprint_token'] == null ||
+          fingerprintData['fingerprint_token'].toString().isEmpty) {
         _showMessage("No fingerprint registered for this device.");
         setState(() => _isLoading = false);
         return;
       }
 
+      final int userId = fingerprintData['user_id'];
+      final String token = fingerprintData['fingerprint_token'];
+
+      // Step 4: Attempt Fingerprint Login
       final success = await AuthService.fingerprintLogin(
+        userId: userId,
         fingerprintToken: token,
         deviceId: deviceId,
       );
 
       if (success) {
+        AuthService.setUserId(userId); // Use the setter method
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         _showMessage('Authentication failed. Please try again.');
       }
     } catch (e) {
+      print('Biometric login error: $e');
       _showMessage('An error occurred. Please try again.');
     } finally {
       setState(() => _isLoading = false);
     }
   }
+
 
   // Custom input decoration with FigmaSquircle
   InputDecoration _getInputDecoration({
@@ -164,30 +286,26 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         color: Colors.grey.shade700,
         fontWeight: FontWeight.w500,
       ),
-      hintStyle: GoogleFonts.outfit(
-        color: Colors.grey.shade400,
-      ),
+      hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Color(0xFF6200EE), width: 2),
+        borderSide: BorderSide(color: Color(0xFF143CFF), width: 2),
       ),
       filled: true,
       fillColor: Colors.grey.shade50,
       contentPadding: EdgeInsets.symmetric(vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Color(0xFF6200EE); // Deep purple
-    
+    final primaryColor = Color(0xFF143CFF); // Deep purple
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -215,7 +333,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       child: Icon(HugeIcons.strokeRoundedLock),
                     ),
                     SizedBox(height: 30),
-                    
+
                     // Welcome Text
                     Text(
                       'Selamat Datang',
@@ -235,7 +353,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                     ),
                     SizedBox(height: 35),
-                    
+
                     // Username Field
                     TextFormField(
                       controller: _usernameController,
@@ -250,7 +368,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                     ),
                     SizedBox(height: 20),
-                    
+
                     // Password Field
                     TextFormField(
                       controller: _passwordController,
@@ -264,9 +382,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           child: Icon(HugeIcons.strokeRoundedSquareLock02),
                         ),
                         suffixIcon: IconButton(
-                          icon: _obscurePassword 
-                              ? Icon(HugeIcons.strokeRoundedView)
-                              : Icon(HugeIcons.strokeRoundedViewOffSlash),
+                          icon:
+                              _obscurePassword
+                                  ? Icon(HugeIcons.strokeRoundedView)
+                                  : Icon(HugeIcons.strokeRoundedViewOffSlash),
                           onPressed: () {
                             setState(() {
                               _obscurePassword = !_obscurePassword;
@@ -276,7 +395,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                     ),
                     SizedBox(height: 15),
-                    
+
                     // Forgot Password
                     Align(
                       alignment: Alignment.centerRight,
@@ -298,7 +417,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                     ),
                     SizedBox(height: 30),
-                    
+
                     // Login Button
                     Container(
                       width: double.infinity,
@@ -316,26 +435,27 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                             ),
                           ),
                         ),
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
+                        child:
+                            _isLoading
+                                ? SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                                : Text(
+                                  'Masuk',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              )
-                            : Text(
-                                'Masuk',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
                       ),
                     ),
                     SizedBox(height: 20),
-                    
+
                     // Fingerprint Button
                     Container(
                       width: double.infinity,
@@ -366,7 +486,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                     ),
                     SizedBox(height: 30),
-                    
+
                     // Sign Up Link
                     // Row(
                     //   mainAxisAlignment: MainAxisAlignment.center,

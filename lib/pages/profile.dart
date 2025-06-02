@@ -13,7 +13,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final Color _primaryColor = Color(0xFF6200EE);
+  final Color _primaryColor = Color(0xFF143CFF);
   // final ImagePicker _picker = ImagePicker();
   File? _profileImage;
   bool _isLoadingProfile = true;
@@ -196,35 +196,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileHeader() {
     return Stack(
       children: [
-        // Gradient background behind the card
-        Container(
-          height: 200,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                _primaryColor.withOpacity(0.12),
-                Colors.white,
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
         Align(
           alignment: Alignment.topCenter,
           child: Container(
-            margin: EdgeInsets.only(top: 32),
+            // margin: EdgeInsets.only(top: 32),
             padding: EdgeInsets.all(20),
             decoration: ShapeDecoration(
               color: Colors.white,
-              shadows: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.07),
-                  blurRadius: 24,
-                  offset: Offset(0, 8),
-                ),
-              ],
               shape: SmoothRectangleBorder(
                 borderRadius: SmoothBorderRadius(
                   cornerRadius: 24,
@@ -236,102 +214,85 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            child: Column(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Stack(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _primaryColor.withOpacity(0.18),
-                            blurRadius: 16,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                        border: Border.all(
-                          color: _primaryColor.withOpacity(0.25),
-                          width: 3,
-                        ),
+                // Profile image/initial
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _primaryColor.withOpacity(0.18),
+                        blurRadius: 16,
+                        spreadRadius: 2,
                       ),
-                      child: Container(
-                        decoration: ShapeDecoration(
-                          color: _primaryColor.withOpacity(0.1),
-                          shape: SmoothRectangleBorder(
-                            borderRadius: SmoothBorderRadius(
-                              cornerRadius: 50,
-                              cornerSmoothing: 1,
-                            ),
-                          ),
-                          image: _profileImage != null
-                              ? DecorationImage(
-                                  image: FileImage(_profileImage!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: _profileImage == null
-                            ? Center(
-                                child: Text(
-                                  (_userData['adminname']?.isNotEmpty == true)
-                                      ? _userData['adminname']!.substring(0, 1)
-                                      : 'A',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.bold,
-                                    color: _primaryColor,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
+                    ],
+                    border: Border.all(
+                      color: _primaryColor.withOpacity(0.25),
+                      width: 3,
                     ),
-                    // Edit icon overlay (future use)
-                    Positioned(
-                      bottom: 6,
-                      right: 6,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          HugeIcons.strokeRoundedEdit02,
-                          color: _primaryColor,
-                          size: 18,
+                  ),
+                  child: Container(
+                    decoration: ShapeDecoration(
+                      color: _primaryColor.withOpacity(0.1),
+                      shape: SmoothRectangleBorder(
+                        borderRadius: SmoothBorderRadius(
+                          cornerRadius: 50,
+                          cornerSmoothing: 1,
                         ),
                       ),
+                      image: _profileImage != null
+                          ? DecorationImage(
+                              image: FileImage(_profileImage!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                  ],
-                ),
-                SizedBox(height: 18),
-                Text(
-                  _userData['adminname'] ?? 'Nama',
-                  style: GoogleFonts.outfit(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    child: _profileImage == null
+                        ? Center(
+                            child: Text(
+                              (_userData['adminname']?.isNotEmpty == true)
+                                  ? _userData['adminname']!.substring(0, 1)
+                                  : 'A',
+                              style: GoogleFonts.outfit(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: _primaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  _userData['username'] ?? 'Username',
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    color: Colors.black54,
+                SizedBox(width: 20),
+                // Name and username
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _userData['adminname'] ?? 'Nama',
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        _userData['username'] ?? 'Username',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: 10),
+                // Aktif badge
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: ShapeDecoration(
@@ -494,26 +455,35 @@ class _ProfilePageState extends State<ProfilePage> {
           color: Colors.blue,
           onTap: () => _showMessage('Fitur segera hadir!'),
         ),
-        SizedBox(height: 12),
+        SizedBox(height: 14),
         _buildActionButton(
           icon: HugeIcons.strokeRoundedFingerAccess,
           label: 'Kelola Login Fingerprint',
           color: Colors.teal,
           onTap: () => _showMessage('Fitur segera hadir!'),
         ),
-        SizedBox(height: 12),
+        SizedBox(height: 14),
         _buildActionButton(
           icon: HugeIcons.strokeRoundedNotification03,
           label: 'Pengaturan Notifikasi',
           color: Colors.amber[700]!,
           onTap: () => _showMessage('Fitur segera hadir!'),
         ),
-        SizedBox(height: 12),
+        SizedBox(height: 14),
         _buildActionButton(
           icon: HugeIcons.strokeRoundedLogout03,
           label: 'Keluar',
-          color: Colors.red,
+          color: Colors.red.shade400,
           onTap: _logout,
+        ),
+        SizedBox(height: 18),
+        Text(
+          '© 2025 hooy. V.1.0.0',
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: Colors.black38,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ],
     );
