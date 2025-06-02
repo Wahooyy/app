@@ -56,7 +56,9 @@
 		<key>NSLocationAlwaysUsageDescription</key>
 		<string>Butuh akses lokasi untuk absen.</string>
 		<key>NSFaceIDUsageDescription</key>
-		<string>This app uses Face ID for secure authentication and login</string>
+		<string>Aplikasi ini membutuhkan Face ID untuk keamanan autentikasi</string>
+		<key>NSBiometricUsageDescription</key>
+		<string>Aplikasi ini membutuhkan Face ID untuk keamanan autentikasi</string>
 		<key>MinimumOSVersion</key>
 		<string>15.5</string>
 	</dict>

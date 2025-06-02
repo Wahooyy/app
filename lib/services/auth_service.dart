@@ -256,68 +256,132 @@ class AuthService {
     return '';
   }
 
-  static Future<bool> submitAttendance(String locationCode,String mode) async {
-    print('Scanned location code: $locationCode'); // <-- Add this line
-    final deviceInfo = DeviceInfoPlugin();
-    String deviceId = '';
-
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      // deviceId = androidInfo.id ?? 'unknown';
-      deviceId = androidInfo.id;
-    } else if (Platform.isIOS) {
-      final iosInfo = await deviceInfo.iosInfo;
-      deviceId = iosInfo.identifierForVendor ?? 'unknown';
-    }
-
-    // Meminta izin lokasi
-    PermissionStatus permission = await Permission.location.request();
-    if (permission.isDenied || permission.isPermanentlyDenied) {
-      // Jika izin ditolak atau tidak permanen, beri tahu pengguna
-      return false;
-    }
-
-    // Ambil lokasi
-    Position position;
+  static Future<Map<String, dynamic>> submitAttendance(String locationCode, String mode) async {
+    print('Scanned location code: $locationCode');
+    
     try {
-      position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+      // Get device information
+      final deviceInfo = DeviceInfoPlugin();
+      String deviceId = '';
+
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        deviceId = androidInfo.id;
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        deviceId = iosInfo.identifierForVendor ?? 'unknown';
+      }
+
+      print('Device ID: $deviceId');
+
+      // Check location permission
+      PermissionStatus permission = await Permission.location.request();
+      if (permission.isDenied) {
+        return {
+          'success': false,
+          'error': 'Location permission denied. Please allow location access in Settings.'
+        };
+      } else if (permission.isPermanentlyDenied) {
+        return {
+          'success': false,
+          'error': 'Location permission permanently denied. Please enable it in Settings.'
+        };
+      }
+
+      // Get current location
+      Position position;
+      try {
+        // Check if location services are enabled
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          return {
+            'success': false,
+            'error': 'Location services are disabled. Please enable location services.'
+          };
+        }
+
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10), // Add timeout
+        );
+        print('Location: ${position.latitude}, ${position.longitude}');
+      } catch (e) {
+        print("Failed to get location: $e");
+        return {
+          'success': false,
+          'error': 'Failed to get location: ${e.toString()}'
+        };
+      }
+
+      // Prepare the POST body
+      final postBody = {
+        'location_code': locationCode,
+        'device_id': deviceId,
+        'latitude': position.latitude.toString(),
+        'longitude': position.longitude.toString(),
+        'mode': mode,
+      };
+
+      print('POST body: $postBody');
+
+      // Make HTTP request with timeout
+      final res = await http.post(
+        Uri.parse('$baseUrl/submit_attendance.php'),
+        body: postBody,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      ).timeout(Duration(seconds: 30));
+
+      print('HTTP Status Code: ${res.statusCode}');
+      print('API raw response: "${res.body}"');
+
+      // Check HTTP status code
+      if (res.statusCode != 200) {
+        return {
+          'success': false,
+          'error': 'Server error: HTTP ${res.statusCode}'
+        };
+      }
+
+      // Check if response is empty
+      if (res.body == null || res.body.trim().isEmpty) {
+        print('API returned empty response!');
+        return {
+          'success': false,
+          'error': 'Server returned empty response'
+        };
+      }
+
+      // Try to decode JSON response
+      try {
+        final data = jsonDecode(res.body);
+        print('API decoded response: $data');
+        
+        if (data['success'] == true) {
+          return {'success': true};
+        } else {
+          // Server returned error message
+          String errorMsg = data['message'] ?? data['error'] ?? 'Unknown server error';
+          return {
+            'success': false,
+            'error': errorMsg
+          };
+        }
+      } catch (e) {
+        print('Error decoding API response: $e');
+        print('Raw response: "${res.body}"');
+        return {
+          'success': false,
+          'error': 'Invalid response format from server'
+        };
+      }
     } catch (e) {
-      print("Gagal mengambil lokasi: $e");
-      return false;
-    }
-
-    // Prepare the POST body
-    final postBody = {
-      'location_code': locationCode,
-      'device_id': deviceId,
-      'latitude': position.latitude.toString(),
-      'longitude': position.longitude.toString(),
-      'mode': mode,
-    };
-
-    print('POST body: $postBody');
-
-    final res = await http.post(
-      Uri.parse('$baseUrl/submit_attendance.php'),
-      body: postBody,
-    );
-
-    print('API raw response: "${res.body}"');
-
-    if (res.body == null || res.body.trim().isEmpty) {
-      print('API returned empty response!');
-      return false;
-    }
-
-    try {
-      final data = jsonDecode(res.body);
-      print('API decoded response: $data');
-      return data['success'] == true;
-    } catch (e) {
-      print('Error decoding API response: $e');
-      print('Raw response: "${res.body}"');
-      return false;
+      print('Unexpected error in submitAttendance: $e');
+      return {
+        'success': false,
+        'error': 'Unexpected error: ${e.toString()}'
+      };
     }
   }
   

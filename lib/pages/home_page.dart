@@ -261,7 +261,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  
   Future<void> _startAttendanceFlow() async {
     setState(() => _isLoading = true);
 
@@ -316,20 +315,24 @@ class _HomePageState extends State<HomePage> {
       // Step 5: Show loading dialog and submit attendance
       _showLoadingDialog(context);
       String mode = _selectedAttendanceTab == 'Masuk' ? 'checkin' : 'checkout';
-      bool success = await AuthService.submitAttendance(scannedCode, mode);
+      
+      // Use the new enhanced method
+      Map<String, dynamic> result = await AuthService.submitAttendance(scannedCode, mode);
 
       // Step 6: Close loading dialog
       Navigator.of(context).pop();
 
-      // Step 7: Handle result
-      if (success) {
+      // Step 7: Handle result with detailed error messages
+      if (result['success'] == true) {
         _showSuccessDialog(
           context,
           "${_selectedAttendanceTab} berhasil!",
         );
         await _loadCheckinStatus();
       } else {
-        _showMessage("Gagal menyimpan absensi.");
+        // Show specific error message
+        String errorMessage = result['error'] ?? "Gagal menyimpan absensi.";
+        _showErrorDialog(context, errorMessage);
       }
     } catch (e) {
       print('Attendance flow error: $e');
@@ -337,13 +340,94 @@ class _HomePageState extends State<HomePage> {
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop();
       }
-      _showMessage('An error occurred. Please try again.');
+      _showErrorDialog(context, 'An unexpected error occurred: ${e.toString()}');
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  // Helper method to get biometric type string (add this if you don't have it)
+  // Add this new method for showing error dialogs
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: SmoothRectangleBorder(
+          borderRadius: SmoothBorderRadius(
+            cornerRadius: 20,
+            cornerSmoothing: 1,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 20),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Icon(
+                  HugeIcons.strokeRoundedAlert01,
+                  color: Colors.red,
+                  size: 50,
+                ),
+              ),
+            ),
+            SizedBox(height: 24),
+            Text(
+              "Error",
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12),
+            Text(
+              message,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  shape: SmoothRectangleBorder(
+                    borderRadius: SmoothBorderRadius(
+                      cornerRadius: 12,
+                      cornerSmoothing: 0.8,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  "OK",
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<String> _getBiometricTypeString() async {
     try {
       List<BiometricType> availableBiometrics = await auth.getAvailableBiometrics();
