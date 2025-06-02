@@ -1,4 +1,6 @@
 // lib/pages/home_page.dart
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -28,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   );
   // ignore: unused_field
   bool _isLoading = false;
+  // ignore: unused_field
   bool _isLoadingProfile = true;
   bool _checkedInToday = false;
   String? _jamIn;
@@ -848,15 +851,15 @@ class _HomePageState extends State<HomePage> {
                     ) ? null : _startAttendanceFlow,
                     icon: Icon(
                       _selectedAttendanceTab == 'Masuk'
-                          ? HugeIcons.strokeRoundedFingerprintScan
+                          ? HugeIcons.strokeRoundedFingerAccess
                           : HugeIcons.strokeRoundedLogout01,
                       size: 20,
                     ),
                     label: Text(
                       _selectedAttendanceTab == 'Masuk' && _checkedInToday && _jamIn != null
-                          ? 'Sudah Check-in: $_jamIn'
+                          ? 'Sudah Absen: $_jamIn'
                           : _selectedAttendanceTab == 'Pulang' && _checkedOutToday && _jamOut != null
-                              ? 'Sudah Check-out: $_jamOut'
+                              ? 'Sudah Absen: $_jamOut'
                               : _selectedAttendanceTab,
                       style: GoogleFonts.outfit(
                         fontWeight: FontWeight.w600,
@@ -1067,6 +1070,7 @@ Widget _buildShortcutItem(String title, IconData icon, Color color) {
   );
 }
 
+  // ignore: unused_element
   Widget _buildAttendanceStatsCard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1299,6 +1303,7 @@ Widget _buildShortcutItem(String title, IconData icon, Color color) {
     );
   }
 
+  // ignore: unused_element
   Widget _buildComingSoonPage(String title) {
     return Center(
       child: Column(

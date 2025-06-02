@@ -1,8 +1,11 @@
+// ignore_for_file: unused_field
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:figma_squircle/figma_squircle.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'dart:io';
+// ignore: unused_import
 import 'dart:math' as math;
 
 class TicketSupportPage extends StatefulWidget {
@@ -511,7 +514,7 @@ class _TicketSupportPageState extends State<TicketSupportPage> {
                 Icon(HugeIcons.strokeRoundedUser03, color: Colors.grey[400], size: 18),
                 SizedBox(width: 8),
                 Text(
-                  showTechnician ? technician ?? '' : 'Belum ada teknisi',
+                  showTechnician ? technician : 'Belum ada teknisi',
                   style: GoogleFonts.outfit(fontSize: 14, color: showTechnician ? Colors.black87 : Colors.black38, fontWeight: FontWeight.w500),
                 ),
               ],

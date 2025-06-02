@@ -125,9 +125,9 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              // Handle logout logic
-              // AuthService.logout();
+            onPressed: () async {
+              Navigator.pop(context); 
+              await AuthService.logout();
               Navigator.pushReplacementNamed(context, '/login');
             },
             style: ElevatedButton.styleFrom(
@@ -478,7 +478,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         SizedBox(height: 18),
         Text(
-          '© 2025 hooy. V.1.0.0',
+          '© 2025 hooy. V.0.1.0',
           style: GoogleFonts.outfit(
             fontSize: 13,
             color: Colors.black38,

@@ -33,20 +33,242 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   void _setDefaultRange() {
     // Get current time in Jakarta timezone
     final jakartaTime = DateTime.now().toUtc().add(Duration(hours: 7));
-    
+
     // Find Monday of current week
-    final startOfWeek = jakartaTime.subtract(Duration(days: jakartaTime.weekday - 1));
+    final startOfWeek = jakartaTime.subtract(
+      Duration(days: jakartaTime.weekday - 1),
+    );
     // Set end to Saturday (Monday + 5 days)
     final endOfWeek = startOfWeek.add(Duration(days: 5));
-    
+
     // Ensure we're working with date-only (no time component)
-    _rangeStart = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    _rangeStart = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
     _rangeEnd = DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day);
-    
+
     print('Jakarta time: $jakartaTime');
-    print('Week range: ${DateFormat('yyyy-MM-dd').format(_rangeStart!)} to ${DateFormat('yyyy-MM-dd').format(_rangeEnd!)}');
+    print(
+      'Week range: ${DateFormat('yyyy-MM-dd').format(_rangeStart!)} to ${DateFormat('yyyy-MM-dd').format(_rangeEnd!)}',
+    );
     print('Range start: $_rangeStart');
     print('Range end: $_rangeEnd');
+  }
+
+  // Add this method to your class for month/year picker
+  void _showMonthYearPicker(BuildContext context, DateTime currentDate) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        int selectedYear = currentDate.year;
+        int selectedMonth = currentDate.month;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'Pilih Bulan & Tahun',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              content: Container(
+                height: 200,
+                width: 300,
+                child: Column(
+                  children: [
+                    // Year selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Tahun:',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  // Limit year range
+                                  if (selectedYear > DateTime.now().year - 2) {
+                                    selectedYear--;
+                                  }
+                                });
+                              },
+                              icon: Icon(HugeIcons.strokeRoundedArrowLeft01),
+                            ),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$selectedYear',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: _primaryColor,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  // Limit year range
+                                  if (selectedYear < DateTime.now().year + 1) {
+                                    selectedYear++;
+                                  }
+                                });
+                              },
+                              icon: Icon(HugeIcons.strokeRoundedArrowRight01),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    // Month grid
+                    Text(
+                      'Bulan:',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 2.5,
+                        ),
+                        itemCount: 12,
+                        itemBuilder: (context, index) {
+                          final monthNames = [
+                            'Jan',
+                            'Feb',
+                            'Mar',
+                            'Apr',
+                            'Mei',
+                            'Jun',
+                            'Jul',
+                            'Ags',
+                            'Sep',
+                            'Okt',
+                            'Nov',
+                            'Des',
+                          ];
+                          final month = index + 1;
+                          final isSelected = selectedMonth == month;
+
+                          return GestureDetector(
+                            onTap: () {
+                              setModalState(() {
+                                selectedMonth = month;
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelected
+                                        ? _primaryColor
+                                        : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  monthNames[index],
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        isSelected
+                                            ? Colors.white
+                                            : Colors.black87,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(
+                    'Batal',
+                    style: GoogleFonts.outfit(color: Colors.grey.shade600),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final newFocusedDay = DateTime(
+                      selectedYear,
+                      selectedMonth,
+                      1,
+                    );
+                    final firstDay = DateTime(DateTime.now().year - 2, 1, 1);
+                    final lastDay = DateTime(DateTime.now().year + 1, 12, 31);
+
+                    // Ensure the new focused day is within valid range
+                    if (newFocusedDay.isBefore(firstDay) ||
+                        newFocusedDay.isAfter(lastDay)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Tanggal di luar rentang yang diizinkan',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setState(() {
+                      _focusedDay = newFocusedDay;
+                    });
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Pilih',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _fetchHistory() async {
@@ -86,14 +308,24 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
 
       // Get current Jakarta time (UTC+7)
       final jakartaTime = DateTime.now().toUtc().add(Duration(hours: 7));
-      final todayOnly = DateTime(jakartaTime.year, jakartaTime.month, jakartaTime.day);
-      
+      final todayOnly = DateTime(
+        jakartaTime.year,
+        jakartaTime.month,
+        jakartaTime.day,
+      );
+
       // Filter to show only dates up to today (not future dates)
-      final filteredHistory = history.where((item) {
-        final itemDate = DateTime.parse(item['tgl_absen']);
-        final itemDateOnly = DateTime(itemDate.year, itemDate.month, itemDate.day);
-        return itemDateOnly.isBefore(todayOnly) || itemDateOnly.isAtSameMomentAs(todayOnly);
-      }).toList();
+      final filteredHistory =
+          history.where((item) {
+            final itemDate = DateTime.parse(item['tgl_absen']);
+            final itemDateOnly = DateTime(
+              itemDate.year,
+              itemDate.month,
+              itemDate.day,
+            );
+            return itemDateOnly.isBefore(todayOnly) ||
+                itemDateOnly.isAtSameMomentAs(todayOnly);
+          }).toList();
 
       print('Jakarta current time: $jakartaTime');
       print('Today date only: $todayOnly');
@@ -205,7 +437,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
     int sakit = 0;
 
     for (var item in _history) {
-      switch (item['status']?.toString()?.toLowerCase()) {
+      switch (item['status']?.toString().toLowerCase()) {
         case 'hadir':
           hadir++;
           break;
@@ -357,10 +589,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
             SizedBox(height: 8),
             Text(
               'Pilih periode yang berbeda untuk melihat riwayat',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: Colors.black38,
-              ),
+              style: GoogleFonts.outfit(fontSize: 14, color: Colors.black38),
               textAlign: TextAlign.center,
             ),
           ],
@@ -377,10 +606,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
             cornerRadius: 20,
             cornerSmoothing: 1,
           ),
-          side: BorderSide(
-            color: Colors.grey.shade100,
-            width: 2,
-          ),
+          side: BorderSide(color: Colors.grey.shade100, width: 2),
         ),
       ),
       child: Column(
@@ -391,11 +617,12 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
             physics: NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             itemCount: _history.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              color: Colors.grey.shade100,
-              thickness: 2,
-            ),
+            separatorBuilder:
+                (context, index) => Divider(
+                  height: 1,
+                  color: Colors.grey.shade100,
+                  thickness: 2,
+                ),
             itemBuilder: (context, index) {
               final item = _history[index];
               final date = DateTime.parse(item['tgl_absen']);
@@ -423,11 +650,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                       ),
                     ),
                   ),
-                  child: Icon(
-                    statusIcon,
-                    color: statusColor,
-                    size: 20,
-                  ),
+                  child: Icon(statusIcon, color: statusColor, size: 20),
                 ),
                 title: Text(
                   _formatDay(date),
@@ -448,10 +671,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                   ),
                 ),
                 trailing: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: ShapeDecoration(
                     color: statusColor.withOpacity(0.1),
                     shape: SmoothRectangleBorder(
@@ -503,7 +723,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
           physics: AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // Enhanced Calendar Container
+              // Enhanced Calendar Widget with Month/Year Selection
               Container(
                 margin: EdgeInsets.all(16),
                 decoration: ShapeDecoration(
@@ -581,20 +801,38 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                       child: TableCalendar<dynamic>(
                         locale: 'id_ID',
                         firstDay: DateTime(
-                          DateTime.now().year,
-                          DateTime.now().month,
+                          DateTime.now().year - 2,
                           1,
-                        ),
+                          1,
+                        ), // Extended range
                         lastDay: DateTime(
-                          DateTime.now().year,
-                          DateTime.now().month + 1,
-                          0,
-                        ),
-                        focusedDay: _focusedDay,
+                          DateTime.now().year + 1,
+                          12,
+                          31,
+                        ), // Extended range
+                        focusedDay:
+                            _focusedDay.isBefore(
+                                  DateTime(DateTime.now().year - 2, 1, 1),
+                                )
+                                ? DateTime(DateTime.now().year - 2, 1, 1)
+                                : _focusedDay.isAfter(
+                                  DateTime(DateTime.now().year + 1, 12, 31),
+                                )
+                                ? DateTime(DateTime.now().year + 1, 12, 31)
+                                : _focusedDay,
                         rangeStartDay: _rangeStart,
                         rangeEndDay: _rangeEnd,
                         calendarFormat: CalendarFormat.month,
                         rangeSelectionMode: RangeSelectionMode.toggledOn,
+
+                        // Enable swipe gestures and page changes
+                        onPageChanged: (focusedDay) {
+                          setState(() {
+                            _focusedDay = focusedDay;
+                          });
+                        },
+
+                        // Range selection handler
                         onRangeSelected: (start, end, _) {
                           setState(() {
                             _rangeStart = start;
@@ -602,16 +840,28 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                           });
                           _fetchHistory();
                         },
+
+                        // Header tap handler for month/year picker
+                        onHeaderTapped: (focusedDay) {
+                          _showMonthYearPicker(context, focusedDay);
+                        },
+
+                        // Day selection predicate
                         selectedDayPredicate: (day) {
-                          if (_rangeStart == null || _rangeEnd == null) return false;
-                          
+                          if (_rangeStart == null || _rangeEnd == null)
+                            return false;
+
                           // Don't select Sundays
                           if (day.weekday == 7) return false;
-                          
+
                           // Check if day is within the selected range (inclusive)
-                          return (day.isAfter(_rangeStart!.subtract(Duration(days: 1))) &&
-                                  day.isBefore(_rangeEnd!.add(Duration(days: 1))));
+                          return (day.isAfter(
+                                _rangeStart!.subtract(Duration(days: 1)),
+                              ) &&
+                              day.isBefore(_rangeEnd!.add(Duration(days: 1))));
                         },
+
+                        // Header styling
                         headerStyle: HeaderStyle(
                           formatButtonVisible: false,
                           titleCentered: true,
@@ -631,7 +881,11 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                             color: Colors.black87,
                           ),
                           headerPadding: EdgeInsets.symmetric(vertical: 8),
+                          leftChevronPadding: EdgeInsets.all(8),
+                          rightChevronPadding: EdgeInsets.all(8),
                         ),
+
+                        // Calendar styling
                         calendarStyle: CalendarStyle(
                           outsideDaysVisible: false,
                           weekendTextStyle: GoogleFonts.outfit(
@@ -646,61 +900,64 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                             color: Colors.black87,
                             fontWeight: FontWeight.w500,
                           ),
-                          selectedDecoration: ShapeDecoration(
+                          selectedTextStyle: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          selectedDecoration: BoxDecoration(
                             color: _primaryColor,
-                            shape: SmoothRectangleBorder(
-                              borderRadius: SmoothBorderRadius(
-                                cornerRadius: 8,
-                                cornerSmoothing: 1,
-                              ),
-                              // side: BorderSide(color: _primaryColor, width: 2),
-                            ),
+                            shape: BoxShape.circle,
                           ),
-                          rangeStartDecoration: ShapeDecoration(
-                            color: _primaryColor.withOpacity(0.1),
-                            shape: SmoothRectangleBorder(
-                              borderRadius: SmoothBorderRadius(
-                                cornerRadius: 8,
-                                cornerSmoothing: 1,
-                              ),
-                              side: BorderSide(color: _primaryColor, width: 2),
-                            ),
+
+                          // Today's date styling
+                          todayTextStyle: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
                           ),
-                          rangeEndDecoration: ShapeDecoration(
-                            color: _primaryColor.withOpacity(0.1),
-                            shape: SmoothRectangleBorder(
-                              borderRadius: SmoothBorderRadius(
-                                cornerRadius: 8,
-                                cornerSmoothing: 1,
-                              ),
-                              side: BorderSide(color: _primaryColor, width: 2),
-                            ),
-                          ),
-                          withinRangeDecoration: ShapeDecoration(
-                            color: _primaryColor.withOpacity(0.05),
-                            shape: SmoothRectangleBorder(
-                              borderRadius: SmoothBorderRadius(
-                                cornerRadius: 8,
-                                cornerSmoothing: 1,
-                              ),
-                            ),
-                          ),
-                          todayDecoration: ShapeDecoration(
+                          todayDecoration: BoxDecoration(
                             color: _primaryColor,
-                            shape: SmoothRectangleBorder(
-                              borderRadius: SmoothBorderRadius(
-                                cornerRadius: 8,
-                                cornerSmoothing: 1,
-                              ),
-                              // side: BorderSide(color: _primaryColor.withOpacity(0.5), width: 1),
-                            ),
+                            shape: BoxShape.circle,
+                          ),
+
+                          // Range selection styling
+                          rangeStartTextStyle: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          rangeStartDecoration: BoxDecoration(
+                            color: _primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          rangeEndTextStyle: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          rangeEndDecoration: BoxDecoration(
+                            color: _primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          withinRangeTextStyle: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          withinRangeDecoration: BoxDecoration(
+                            color: _primaryColor,
+                            shape: BoxShape.circle,
                           ),
                           rangeHighlightColor: _primaryColor,
-                          tablePadding: EdgeInsets.zero,
+
+                          // Cell margins and padding
                           cellMargin: EdgeInsets.all(4),
+                          cellPadding: EdgeInsets.zero,
+
+                          // Disable days styling
+                          disabledTextStyle: GoogleFonts.outfit(
+                            color: Colors.grey.shade300,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
 
-                        // Updated DaysOfWeekStyle to handle Sunday as red
+                        // Days of week styling
                         daysOfWeekStyle: DaysOfWeekStyle(
                           weekdayStyle: GoogleFonts.outfit(
                             color: Colors.black54,
@@ -708,13 +965,13 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                             fontSize: 12,
                           ),
                           weekendStyle: GoogleFonts.outfit(
-                            color: Colors.black54, // Saturday is normal
+                            color: Colors.black54,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
                         ),
 
-                        // Add this method to customize day builder for Sunday specifically
+                        // Custom day builders
                         calendarBuilders: CalendarBuilders(
                           defaultBuilder: (context, day, focusedDay) {
                             // Make Sunday red
@@ -733,8 +990,47 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                             }
                             return null; // Use default for other days
                           },
+
+                          // Custom disabled day builder
+                          disabledBuilder: (context, day, focusedDay) {
+                            if (day.weekday == 7) {
+                              return Container(
+                                margin: EdgeInsets.all(4),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  '${day.day}',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.red.shade200,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              );
+                            }
+                            return null;
+                          },
+
+                          // Custom outside day builder
+                          outsideBuilder: (context, day, focusedDay) {
+                            return Container(
+                              margin: EdgeInsets.all(4),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${day.day}',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.grey.shade300,
+                                  fontWeight: FontWeight.w400,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            );
+                          },
                         ),
 
+                        // Enable gestures
+                        availableGestures: AvailableGestures.all,
+
+                        // Start week on Monday
+                        startingDayOfWeek: StartingDayOfWeek.monday,
                       ),
                     ),
                   ],

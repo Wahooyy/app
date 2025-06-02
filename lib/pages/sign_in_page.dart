@@ -114,7 +114,7 @@ class _LoginPageState extends State<LoginPage>
 
   Future<void> _handleLogin() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showMessage('Please enter both username and password');
+      _showMessage('Masukkan username dan password');
       return;
     }
 
@@ -136,20 +136,27 @@ class _LoginPageState extends State<LoginPage>
           IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
           deviceId = iosInfo.identifierForVendor ?? '';
         } else {
-          _showMessage('Unsupported device');
+          _showMessage('Perangkat tidak mendukung.');
           setState(() => _isLoading = false);
           return;
         }
-
-        // Check if biometric is registered
+        // Get userId before using it
         final userId = AuthService.getUserId();
         if (userId == null) {
-          _showMessage('User ID not found.');
+          _showMessage('User tidak ditemukan.');
+          setState(() => _isLoading = false);
+          return;
+        }
+        // Check if user has registered fingerprint on any device
+        final userDevices = await AuthService.getUserRegisteredDevices(userId);
+        if (userDevices.isNotEmpty && !userDevices.contains(deviceId)) {
+          _showMessage('Akun ini sudah terdaftar di perangkat lain.');
           setState(() => _isLoading = false);
           return;
         }
 
         final token = await AuthService.getFingerprintToken(deviceId, userId);
+        // ignore: unnecessary_null_comparison
         if (token != null && token.isNotEmpty) {
           // Biometric already registered, go to home
           Navigator.pushReplacementNamed(context, '/home');
@@ -165,19 +172,21 @@ class _LoginPageState extends State<LoginPage>
             );
             if (registered) {
               String biometricType = await _getBiometricTypeString();
-              _showMessage('$biometricType registered successfully!');
+              _showMessage('$biometricType berhasil!');
               Navigator.pushReplacementNamed(context, '/home');
             } else {
-              _showMessage('Biometric registration failed or cancelled.');
-              Navigator.pushReplacementNamed(context, '/home');
+              // No biometric still in login page
+              _showMessage('Biometrik gagal.');
+              // Navigator.pushReplacementNamed(context, '/home');
             }
           } else {
-            // No biometric available, just go to home
-            Navigator.pushReplacementNamed(context, '/home');
+            // No biometric still in login page
+              _showMessage('Biometrik gagal.');
+            // Navigator.pushReplacementNamed(context, '/home');
           }
         }
       } else {
-        _showMessage('Login failed. Please check your credentials.');
+        _showMessage('Gagal masuk. Cek kembali username dan password');
       }
     } catch (e) {
       print('Login error: $e');
@@ -196,13 +205,13 @@ class _LoginPageState extends State<LoginPage>
       // Check available biometrics
       bool canCheckBiometrics = await _auth.canCheckBiometrics;
       if (!canCheckBiometrics) {
-        _showMessage('Device does not support biometric authentication');
+        _showMessage('Perangkat tidak mendukung.');
         return false;
       }
 
       List<BiometricType> availableBiometrics = await _auth.getAvailableBiometrics();
       if (availableBiometrics.isEmpty) {
-        _showMessage('No supported biometric found.');
+        _showMessage('Tidak ada biometrik ditemukan.');
         return false;
       }
 
@@ -229,7 +238,7 @@ class _LoginPageState extends State<LoginPage>
       String fingerprintToken = _uuid.v4();
       final userId = AuthService.getUserId();
       if (userId == null) {
-        _showMessage('User ID not found.');
+        _showMessage('User tidak ditemukan.');
         return false;
       }
 
@@ -249,7 +258,7 @@ class _LoginPageState extends State<LoginPage>
       return registered;
     } catch (e) {
       print('Error during biometric registration: $e');
-      _showMessage('Error during biometric registration.');
+      _showMessage('Error saat mendaftarkan biometrik.');
       return false;
     }
   }
@@ -261,14 +270,14 @@ class _LoginPageState extends State<LoginPage>
       // Check if biometrics are available
       bool canCheckBiometrics = await _auth.canCheckBiometrics;
       if (!canCheckBiometrics) {
-        _showMessage('Biometric authentication not available on this device');
+        _showMessage('Biometrik tidak ditemukan di perangkat ini.');
         setState(() => _isLoading = false);
         return;
       }
 
       List<BiometricType> availableBiometrics = await _auth.getAvailableBiometrics();
       if (availableBiometrics.isEmpty) {
-        _showMessage('No biometric authentication methods available');
+        _showMessage('Tidak ada metode biometrik ditemukan');
         setState(() => _isLoading = false);
         return;
       }
@@ -289,7 +298,7 @@ class _LoginPageState extends State<LoginPage>
       );
 
       if (!authenticated) {
-        _showMessage("$biometricType authentication failed. Please try again.");
+        _showMessage("$biometricType login gagal. Silahkan coba lagi.");
         setState(() => _isLoading = false);
         return;
       }
@@ -305,7 +314,7 @@ class _LoginPageState extends State<LoginPage>
         IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
         deviceId = iosInfo.identifierForVendor ?? '';
       } else {
-        _showMessage('Unsupported device');
+        _showMessage('Perangkat tidak mendukung');
         setState(() => _isLoading = false);
         return;
       }
@@ -316,7 +325,7 @@ class _LoginPageState extends State<LoginPage>
       if (fingerprintData == null ||
           fingerprintData['fingerprint_token'] == null ||
           fingerprintData['fingerprint_token'].toString().isEmpty) {
-        _showMessage("No $biometricType registered for this device.");
+        _showMessage("No $biometricType didaftarkan diperangkat ini.");
         setState(() => _isLoading = false);
         return;
       }
@@ -335,11 +344,11 @@ class _LoginPageState extends State<LoginPage>
         AuthService.setUserId(userId);
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        _showMessage('Authentication failed. Please try again.');
+        _showMessage('Autentikasi gagal. Silahkan coba lagi');
       }
     } catch (e) {
       print('Biometric login error: $e');
-      _showMessage('An error occurred. Please try again.');
+      _showMessage('Ada error. Silahkan coba lagi.');
     } finally {
       setState(() => _isLoading = false);
     }

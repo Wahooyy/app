@@ -1,26 +1,94 @@
 //auth_service.dart
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String baseUrl = 'http://103.76.15.27/api';
   // static const String baseUrl = 'http://10.0.2.2/auth_app_api';
   static int? _userId;
+  
+  // SharedPreferences keys
+  static const String _keyIsLoggedIn = 'is_logged_in';
+  static const String _keyUserId = 'user_id';
+  static const String _keyUsername = 'username';
+  static const String _keyDeviceId = 'device_id';
+  static const String _keyFingerprintToken = 'fingerprint_token';
+
   // Get stored user ID
   static int? getUserId() {
     return _userId;
   }
-  // Clear user ID on logout
-  static void logout() {
+
+  // Check if user is logged in (from SharedPreferences)
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool(_keyIsLoggedIn) ?? false;
+    
+    if (isLoggedIn) {
+      // Load user data from SharedPreferences
+      _userId = prefs.getInt(_keyUserId);
+      print('AuthService: User is logged in with ID: $_userId');
+    }
+    
+    return isLoggedIn;
+  }
+
+  // Save login state to SharedPreferences
+  static Future<void> _saveLoginState({
+    required int userId,
+    String? username,
+    String? deviceId,
+    String? fingerprintToken,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIsLoggedIn, true);
+    await prefs.setInt(_keyUserId, userId);
+    
+    if (username != null) {
+      await prefs.setString(_keyUsername, username);
+    }
+    if (deviceId != null) {
+      await prefs.setString(_keyDeviceId, deviceId);
+    }
+    if (fingerprintToken != null) {
+      await prefs.setString(_keyFingerprintToken, fingerprintToken);
+    }
+    
+    print('AuthService: Login state saved for user ID: $userId');
+  }
+
+  // Clear login state from SharedPreferences
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyIsLoggedIn);
+    await prefs.remove(_keyUserId);
+    await prefs.remove(_keyUsername);
+    await prefs.remove(_keyDeviceId);
+    await prefs.remove(_keyFingerprintToken);
+    
     _userId = null;
+    print('AuthService: User logged out and login state cleared');
   }
 
   static void setUserId(int userId) {
     _userId = userId;
+  }
+
+  // Get saved credentials for biometric login
+  static Future<Map<String, String?>> getSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'username': prefs.getString(_keyUsername),
+      'deviceId': prefs.getString(_keyDeviceId),
+      'fingerprintToken': prefs.getString(_keyFingerprintToken),
+    };
   }
 
   static Future<bool> login(String username, String password) async {
@@ -56,6 +124,12 @@ class AuthService {
       if (data['success'] == true) {
         _userId = int.tryParse(data['user_id'].toString());
         if (_userId != null) {
+          // Save login state to SharedPreferences
+          await _saveLoginState(
+            userId: _userId!,
+            username: username.trim(),
+          );
+          
           print('AuthService: Login successful, User ID: $_userId');
           return true;
         } else {
@@ -117,6 +191,13 @@ class AuthService {
       bool success = data['success'] == true;
       
       if (success) {
+        // Update login state in SharedPreferences
+        await _saveLoginState(
+          userId: userId,
+          deviceId: deviceId,
+          fingerprintToken: fingerprintToken,
+        );
+        
         print('AuthService: Fingerprint login successful');
       } else {
         print('AuthService: Fingerprint login failed - ${data['message'] ?? 'Unknown error'}');
@@ -172,6 +253,13 @@ class AuthService {
       bool success = data['success'] == true;
       
       if (success) {
+        // Save fingerprint data to SharedPreferences
+        await _saveLoginState(
+          userId: userId,
+          deviceId: deviceId,
+          fingerprintToken: fingerprintToken,
+        );
+        
         print('AuthService: Fingerprint registration successful');
       } else {
         print('AuthService: Fingerprint registration failed - ${data['message'] ?? 'Unknown error'}');
@@ -237,7 +325,6 @@ class AuthService {
     }
   }
 
-
   // Function to get the fingerprint token from the database based on device ID
   static Future<String> getFingerprintToken(String deviceId, int userId) async {
     
@@ -302,7 +389,7 @@ class AuthService {
 
         position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10), // Add timeout
+          timeLimit: Duration(seconds: 10),
         );
         print('Location: ${position.latitude}, ${position.longitude}');
       } catch (e) {
@@ -345,6 +432,7 @@ class AuthService {
       }
 
       // Check if response is empty
+      // ignore: unnecessary_null_comparison
       if (res.body == null || res.body.trim().isEmpty) {
         print('API returned empty response!');
         return {
@@ -453,6 +541,7 @@ class AuthService {
       body: {'device_id': deviceId},
     );
 
+    // ignore: unnecessary_null_comparison
     if (res.body == null || res.body.trim().isEmpty) {
       return {'success': false, 'checked_in': false};
     }
@@ -537,6 +626,36 @@ class AuthService {
     } catch (e, stackTrace) {
       print('Error in getAttendanceHistory: $e');
       print('Stack trace: $stackTrace');
+      return [];
+    }
+  }
+
+  static Future<List<String>> getUserRegisteredDevices(int userId) async {
+    print('AuthService: Getting registered devices for user: $userId');
+    
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/get_user_devices.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {'user_id': userId.toString()},
+      ).timeout(Duration(seconds: 30));
+
+      print('AuthService: Get user devices response status: ${res.statusCode}');
+      print('AuthService: Get user devices response body: ${res.body}');
+
+      if (res.statusCode != 200 || res.body.isEmpty) {
+        return [];
+      }
+
+      final data = jsonDecode(res.body);
+      if (data['success'] == true && data['devices'] != null) {
+        return List<String>.from(data['devices']);
+      }
+      return [];
+    } catch (e) {
+      print('AuthService: Error getting user devices: $e');
       return [];
     }
   }
