@@ -5,7 +5,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Kahaptex HR</string>
+		<string>myKahaptex</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>Kahaptex HR</string>
+		<string>myKahaptex</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -55,6 +55,8 @@
 		<string>Butuh akses lokasi untuk absen.</string>
 		<key>NSLocationAlwaysUsageDescription</key>
 		<string>Butuh akses lokasi untuk absen.</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>This app uses Face ID for secure authentication and login</string>
 		<key>MinimumOSVersion</key>
 		<string>15.5</string>
 	</dict>

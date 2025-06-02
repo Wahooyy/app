@@ -68,6 +68,49 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
+  // Get user-friendly biometric type string
+  Future<String> _getBiometricTypeString() async {
+    try {
+      List<BiometricType> availableBiometrics = await _auth.getAvailableBiometrics();
+      
+      if (Platform.isIOS) {
+        if (availableBiometrics.contains(BiometricType.face)) {
+          return 'Face ID';
+        } else if (availableBiometrics.contains(BiometricType.fingerprint)) {
+          return 'Touch ID';
+        } else if (availableBiometrics.contains(BiometricType.strong)) {
+          return 'Biometric ID';
+        }
+      } else if (Platform.isAndroid) {
+        if (availableBiometrics.contains(BiometricType.fingerprint)) {
+          return 'Fingerprint';
+        } else if (availableBiometrics.contains(BiometricType.face)) {
+          return 'Face Recognition';
+        } else if (availableBiometrics.contains(BiometricType.strong)) {
+          return 'Biometric';
+        }
+      }
+      return 'Biometric';
+    } catch (e) {
+      print('Error getting biometric type: $e');
+      return 'Biometric';
+    }
+  }
+
+  // Check if biometric authentication is available
+  Future<bool> _isBiometricAvailable() async {
+    try {
+      bool canCheckBiometrics = await _auth.canCheckBiometrics;
+      if (!canCheckBiometrics) return false;
+
+      List<BiometricType> availableBiometrics = await _auth.getAvailableBiometrics();
+      return availableBiometrics.isNotEmpty;
+    } catch (e) {
+      print('Error checking biometric availability: $e');
+      return false;
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
       _showMessage('Please enter both username and password');
@@ -84,16 +127,13 @@ class _LoginPageState extends State<LoginPage>
         // Get device info and device ID
         final deviceInfo = DeviceInfoPlugin();
         String deviceId = '';
-        bool isAndroid = false;
-        bool isIOS = false;
+        
         if (Platform.isAndroid) {
           AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
           deviceId = androidInfo.id;
-          isAndroid = true;
         } else if (Platform.isIOS) {
           IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
           deviceId = iosInfo.identifierForVendor ?? '';
-          isIOS = true;
         } else {
           _showMessage('Unsupported device');
           setState(() => _isLoading = false);
@@ -104,30 +144,42 @@ class _LoginPageState extends State<LoginPage>
         final userId = AuthService.getUserId();
         if (userId == null) {
           _showMessage('User ID not found.');
+          setState(() => _isLoading = false);
           return;
         }
+
         final token = await AuthService.getFingerprintToken(deviceId, userId);
         if (token != null && token.isNotEmpty) {
           // Biometric already registered, go to home
           Navigator.pushReplacementNamed(context, '/home');
         } else {
-          // Prompt biometric registration
-          bool registered = await _registerBiometric(
-            deviceId,
-            username,
-            password,
-          );
-          if (registered) {
-            _showMessage('Biometric registered successfully!');
-            Navigator.pushReplacementNamed(context, '/home');
+          // Check if biometric is available before prompting registration
+          bool biometricAvailable = await _isBiometricAvailable();
+          if (biometricAvailable) {
+            // Prompt biometric registration
+            bool registered = await _registerBiometric(
+              deviceId,
+              username,
+              password,
+            );
+            if (registered) {
+              String biometricType = await _getBiometricTypeString();
+              _showMessage('$biometricType registered successfully!');
+              Navigator.pushReplacementNamed(context, '/home');
+            } else {
+              _showMessage('Biometric registration failed or cancelled.');
+              Navigator.pushReplacementNamed(context, '/home');
+            }
           } else {
-            _showMessage('Biometric registration failed or cancelled.');
+            // No biometric available, just go to home
+            Navigator.pushReplacementNamed(context, '/home');
           }
         }
       } else {
         _showMessage('Login failed. Please check your credentials.');
       }
     } catch (e) {
+      print('Login error: $e');
       _showMessage('Ada error. Coba lagi nanti.');
     } finally {
       setState(() => _isLoading = false);
@@ -146,74 +198,97 @@ class _LoginPageState extends State<LoginPage>
         _showMessage('Device does not support biometric authentication');
         return false;
       }
-      List<BiometricType> availableBiometrics =
-          await _auth.getAvailableBiometrics();
-      BiometricType? selectedType;
-      // Android: Prefer fingerprint, fallback to face
-      // iOS: Prefer face, fallback to fingerprint, then face
-      if (Platform.isAndroid) {
-        if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          selectedType = BiometricType.fingerprint;
-        } else if (availableBiometrics.contains(BiometricType.face)) {
-          selectedType = BiometricType.face;
-        }
-      } else if (Platform.isIOS) {
-        if (availableBiometrics.contains(BiometricType.face)) {
-          selectedType = BiometricType.face;
-        } else if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          selectedType = BiometricType.fingerprint;
-        } else if (availableBiometrics.contains(BiometricType.strong)) {
-          selectedType = BiometricType.strong;
-        }
-      }
+
+      List<BiometricType> availableBiometrics = await _auth.getAvailableBiometrics();
       if (availableBiometrics.isEmpty) {
         _showMessage('No supported biometric found.');
         return false;
       }
+
+      String biometricType = await _getBiometricTypeString();
+
       // Prompt user for biometric registration
       bool authenticated = await _auth.authenticate(
-        localizedReason: 'Register your biometric for secure login',
+        localizedReason: Platform.isIOS 
+          ? 'Set up $biometricType for secure and convenient sign in'
+          : 'Register your biometric for secure login',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
+          sensitiveTransaction: true,
         ),
       );
+
       if (!authenticated) {
-        _showMessage('Biometric registration failed or cancelled.');
+        print('Biometric registration authentication failed');
         return false;
       }
-      // Generate a fake fingerprint token (in real app, backend should generate this)
-      String fingerprintToken = _uuid.v4();  // or use a different method to generate a unique token
+
+      // Generate a unique fingerprint token
+      String fingerprintToken = _uuid.v4();
       final userId = AuthService.getUserId();
       if (userId == null) {
         _showMessage('User ID not found.');
         return false;
       }
+
       // Register biometric with backend
       bool registered = await AuthService.registerWithFingerprint(
         userId,
         fingerprintToken,
         deviceId,
       );
+
+      if (registered) {
+        print('Biometric registration successful');
+      } else {
+        print('Biometric registration failed on server');
+      }
+
       return registered;
     } catch (e) {
+      print('Error during biometric registration: $e');
       _showMessage('Error during biometric registration.');
       return false;
     }
   }
 
-  Future<void> _handleFingerprintLogin() async {
+  Future<void> _handleBiometricLogin() async {
     setState(() => _isLoading = true);
 
     try {
+      // Check if biometrics are available
+      bool canCheckBiometrics = await _auth.canCheckBiometrics;
+      if (!canCheckBiometrics) {
+        _showMessage('Biometric authentication not available on this device');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      List<BiometricType> availableBiometrics = await _auth.getAvailableBiometrics();
+      if (availableBiometrics.isEmpty) {
+        _showMessage('No biometric authentication methods available');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Get the biometric type string for user-friendly messages
+      String biometricType = await _getBiometricTypeString();
+
       // Step 1: Biometric Authentication
       final authenticated = await _auth.authenticate(
-        localizedReason: 'Authenticate to continue',
-        options: const AuthenticationOptions(biometricOnly: true),
+        localizedReason: Platform.isIOS 
+          ? 'Use $biometricType to sign in to your account'
+          : 'Authenticate to continue',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+          sensitiveTransaction: true,
+        ),
       );
 
       if (!authenticated) {
-        _showMessage("Authentication failed. Please try again.");
+        _showMessage("$biometricType authentication failed. Please try again.");
         setState(() => _isLoading = false);
         return;
       }
@@ -240,7 +315,7 @@ class _LoginPageState extends State<LoginPage>
       if (fingerprintData == null ||
           fingerprintData['fingerprint_token'] == null ||
           fingerprintData['fingerprint_token'].toString().isEmpty) {
-        _showMessage("No fingerprint registered for this device.");
+        _showMessage("No $biometricType registered for this device.");
         setState(() => _isLoading = false);
         return;
       }
@@ -256,7 +331,7 @@ class _LoginPageState extends State<LoginPage>
       );
 
       if (success) {
-        AuthService.setUserId(userId); // Use the setter method
+        AuthService.setUserId(userId);
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         _showMessage('Authentication failed. Please try again.');
@@ -268,7 +343,6 @@ class _LoginPageState extends State<LoginPage>
       setState(() => _isLoading = false);
     }
   }
-
 
   // Custom input decoration with FigmaSquircle
   InputDecoration _getInputDecoration({
@@ -304,7 +378,7 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Color(0xFF143CFF); // Deep purple
+    final primaryColor = Color(0xFF143CFF);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -382,10 +456,9 @@ class _LoginPageState extends State<LoginPage>
                           child: Icon(HugeIcons.strokeRoundedSquareLock02),
                         ),
                         suffixIcon: IconButton(
-                          icon:
-                              _obscurePassword
-                                  ? Icon(HugeIcons.strokeRoundedView)
-                                  : Icon(HugeIcons.strokeRoundedViewOffSlash),
+                          icon: _obscurePassword
+                              ? Icon(HugeIcons.strokeRoundedView)
+                              : Icon(HugeIcons.strokeRoundedViewOffSlash),
                           onPressed: () {
                             setState(() {
                               _obscurePassword = !_obscurePassword;
@@ -435,59 +508,68 @@ class _LoginPageState extends State<LoginPage>
                             ),
                           ),
                         ),
-                        child:
-                            _isLoading
-                                ? SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                                : Text(
-                                  'Masuk',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
                                 ),
+                              )
+                            : Text(
+                                'Masuk',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                     SizedBox(height: 20),
 
-                    // Fingerprint Button
-                    Container(
-                      width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton.icon(
-                        icon: Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: Icon(HugeIcons.strokeRoundedFingerAccess),
-                        ),
-                        label: Text(
-                          'Masuk pakai Fingerprint',
-                          style: GoogleFonts.outfit(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        onPressed: _isLoading ? null : _handleFingerprintLogin,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: primaryColor, width: 1.5),
-                          foregroundColor: primaryColor,
-                          shape: SmoothRectangleBorder(
-                            borderRadius: SmoothBorderRadius(
-                              cornerRadius: 16,
-                              cornerSmoothing: 0.8,
+                    // Biometric Button (dynamically shows Face ID or Touch ID)
+                    FutureBuilder<String>(
+                      future: _getBiometricTypeString(),
+                      builder: (context, snapshot) {
+                        String biometricType = snapshot.data ?? 'Biometric';
+                        IconData biometricIcon = Platform.isIOS && biometricType == 'Face ID'
+                            ? HugeIcons.strokeRoundedFaceId
+                            : HugeIcons.strokeRoundedFingerAccess;
+                        
+                        return Container(
+                          width: double.infinity,
+                          height: 56,
+                          child: OutlinedButton.icon(
+                            icon: Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(biometricIcon),
+                            ),
+                            label: Text(
+                              'Masuk pakai $biometricType',
+                              style: GoogleFonts.outfit(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            onPressed: _isLoading ? null : _handleBiometricLogin,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: primaryColor, width: 1.5),
+                              foregroundColor: primaryColor,
+                              shape: SmoothRectangleBorder(
+                                borderRadius: SmoothBorderRadius(
+                                  cornerRadius: 16,
+                                  cornerSmoothing: 0.8,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                     SizedBox(height: 30),
 
-                    // Sign Up Link
+                    // Sign Up Link (commented out as in original)
                     // Row(
                     //   mainAxisAlignment: MainAxisAlignment.center,
                     //   children: [

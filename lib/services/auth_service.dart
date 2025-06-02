@@ -24,24 +24,56 @@ class AuthService {
   }
 
   static Future<bool> login(String username, String password) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/login.php'),
-      body: {'username': username, 'password': password},
-    );
-
+    print('AuthService: Attempting login for username: $username');
+    
     try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/login.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'username': username.trim(),
+          'password': password,
+        },
+      ).timeout(Duration(seconds: 30));
+
+      print('AuthService: Login response status: ${res.statusCode}');
+      print('AuthService: Login response body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        print('AuthService: HTTP error - Status code: ${res.statusCode}');
+        return false;
+      }
+
+      if (res.body.isEmpty) {
+        print('AuthService: Empty response body');
+        return false;
+      }
+
       final data = jsonDecode(res.body);
-      print('login: Response data: $data');
       
       if (data['success'] == true) {
-        _userId = data['user_id'];
-        print('login: User ID set to: $_userId');
-        return true;
+        _userId = int.tryParse(data['user_id'].toString());
+        if (_userId != null) {
+          print('AuthService: Login successful, User ID: $_userId');
+          return true;
+        } else {
+          print('AuthService: Failed to parse user_id');
+          return false;
+        }
+      } else {
+        print('AuthService: Login failed - ${data['message'] ?? 'Unknown error'}');
+        return false;
       }
-      print('login: Authentication failed');
+    } on http.ClientException catch (e) {
+      print('AuthService: Network error during login: $e');
+      return false;
+    } on FormatException catch (e) {
+      print('AuthService: JSON decode error during login: $e');
       return false;
     } catch (e) {
-      print('login: JSON decode error: $e');
+      print('AuthService: Unexpected error during login: $e');
       return false;
     }
   }
@@ -52,20 +84,55 @@ class AuthService {
     required String fingerprintToken,
     required String deviceId,
   }) async {
-    print('fingerprintLogin POST body: {user_id: $userId, fingerprint_token: $fingerprintToken, device_id: $deviceId}');
+    print('AuthService: Attempting fingerprint login');
+    print('AuthService: User ID: $userId, Device ID: $deviceId');
 
-    final res = await http.post(
-      Uri.parse('$baseUrl/fingerprint_login.php'),
-      body: {
-        'user_id': userId.toString(),
-        'fingerprint_token': fingerprintToken,
-        'device_id': deviceId,
-      },
-    );
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/fingerprint_login.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'user_id': userId.toString(),
+          'fingerprint_token': fingerprintToken,
+          'device_id': deviceId,
+        },
+      ).timeout(Duration(seconds: 30));
 
-    print('fingerprintLogin response: "${res.body}"');
-    final data = jsonDecode(res.body);
-    return data['success'] == true;
+      print('AuthService: Fingerprint login response status: ${res.statusCode}');
+      print('AuthService: Fingerprint login response body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        print('AuthService: HTTP error during fingerprint login');
+        return false;
+      }
+
+      if (res.body.isEmpty) {
+        print('AuthService: Empty response body from fingerprint login');
+        return false;
+      }
+
+      final data = jsonDecode(res.body);
+      bool success = data['success'] == true;
+      
+      if (success) {
+        print('AuthService: Fingerprint login successful');
+      } else {
+        print('AuthService: Fingerprint login failed - ${data['message'] ?? 'Unknown error'}');
+      }
+      
+      return success;
+    } on http.ClientException catch (e) {
+      print('AuthService: Network error during fingerprint login: $e');
+      return false;
+    } on FormatException catch (e) {
+      print('AuthService: JSON decode error during fingerprint login: $e');
+      return false;
+    } catch (e) {
+      print('AuthService: Unexpected error during fingerprint login: $e');
+      return false;
+    }
   }
 
   static Future<bool> registerWithFingerprint(
@@ -73,32 +140,101 @@ class AuthService {
     String fingerprintToken,
     String deviceId,
   ) async {
-    final fingerprintRes = await http.post(
-      Uri.parse('$baseUrl/register_fingerprint.php'),
-      body: {
-        'user_id': userId.toString(),
-        'fingerprint_token': fingerprintToken,
-        'device_id': deviceId,
-      },
-    );
-    final fpData = jsonDecode(fingerprintRes.body);
-    return fpData['success'] == true;
+    print('AuthService: Registering fingerprint for user: $userId');
+    
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/register_fingerprint.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'user_id': userId.toString(),
+          'fingerprint_token': fingerprintToken,
+          'device_id': deviceId,
+        },
+      ).timeout(Duration(seconds: 30));
+
+      print('AuthService: Fingerprint registration response status: ${res.statusCode}');
+      print('AuthService: Fingerprint registration response body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        print('AuthService: HTTP error during fingerprint registration');
+        return false;
+      }
+
+      if (res.body.isEmpty) {
+        print('AuthService: Empty response body from fingerprint registration');
+        return false;
+      }
+
+      final data = jsonDecode(res.body);
+      bool success = data['success'] == true;
+      
+      if (success) {
+        print('AuthService: Fingerprint registration successful');
+      } else {
+        print('AuthService: Fingerprint registration failed - ${data['message'] ?? 'Unknown error'}');
+      }
+      
+      return success;
+    } on http.ClientException catch (e) {
+      print('AuthService: Network error during fingerprint registration: $e');
+      return false;
+    } on FormatException catch (e) {
+      print('AuthService: JSON decode error during fingerprint registration: $e');
+      return false;
+    } catch (e) {
+      print('AuthService: Unexpected error during fingerprint registration: $e');
+      return false;
+    }
   }
 
   static Future<Map<String, dynamic>?> getFingerprintData(String deviceId) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/get_fingerprint_token.php'),
-      body: {'device_id': deviceId},
-    );
+    print('AuthService: Getting fingerprint data for device: $deviceId');
+    
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/get_fingerprint_token.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {'device_id': deviceId},
+      ).timeout(Duration(seconds: 30));
 
-    final data = jsonDecode(res.body);
-    if (data['success'] == true) {
-      return {
-        'user_id': int.parse(data['user_id'].toString()),
-        'fingerprint_token': data['fingerprint_token'],
-      };
+      print('AuthService: Get fingerprint data response status: ${res.statusCode}');
+      print('AuthService: Get fingerprint data response body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        print('AuthService: HTTP error getting fingerprint data');
+        return null;
+      }
+
+      if (res.body.isEmpty) {
+        print('AuthService: Empty response body when getting fingerprint data');
+        return null;
+      }
+
+      final data = jsonDecode(res.body);
+      if (data['success'] == true) {
+        return {
+          'user_id': int.tryParse(data['user_id'].toString()) ?? 0,
+          'fingerprint_token': data['fingerprint_token']?.toString() ?? '',
+        };
+      } else {
+        print('AuthService: Failed to get fingerprint data - ${data['message'] ?? 'Unknown error'}');
+        return null;
+      }
+    } on http.ClientException catch (e) {
+      print('AuthService: Network error getting fingerprint data: $e');
+      return null;
+    } on FormatException catch (e) {
+      print('AuthService: JSON decode error getting fingerprint data: $e');
+      return null;
+    } catch (e) {
+      print('AuthService: Unexpected error getting fingerprint data: $e');
+      return null;
     }
-    return null;
   }
 
 
