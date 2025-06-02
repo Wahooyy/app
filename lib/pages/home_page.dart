@@ -37,6 +37,8 @@ class _HomePageState extends State<HomePage> {
   bool _checkedOutToday = false;
   String? _jamOut;
   bool _loadingCheckinStatus = true;
+  List<Map<String, dynamic>> _recentAttendance = [];
+
 
   Map<String, dynamic> _userData = {
     'adminname': '',
@@ -61,6 +63,7 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserProfile();
       _loadCheckinStatus();
+      fetchRecentAttendance();
     });
   }
 
@@ -123,41 +126,67 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> fetchRecentAttendance() async {
+    final userId = AuthService.getUserId();
+    if (userId == null) {
+      // Handle the null case appropriately, e.g., show a message or return early
+      return;
+    }
+    final data = await AuthService.getLatestAttendance(userId);
+
+    // Format ulang agar cocok sama widget ListTile
+    setState(() {
+      _recentAttendance = data.map((item) {
+        return {
+          'date': DateTime.parse(item['tgl_absen']),
+          'clockIn': item['jam_in'] ?? '-',
+          'clockOut': item['jam_out'] ?? '-',
+          'status': _capitalize(item['status']),
+        };
+      }).toList();
+    });
+  }
+
+  String _capitalize(String input) {
+    if (input.isEmpty) return '';
+    return input[0].toUpperCase() + input.substring(1);
+  }
+
   // Sample data for recent attendance
-  final List<Map<String, dynamic>> _recentAttendance = [
-    {
-      'date': DateTime.now().subtract(Duration(days: 0)),
-      'clockIn': '08:05',
-      'clockOut': '17:30',
-      'status': 'Hadir',
-    },
-    {
-      'date': DateTime.now().subtract(Duration(days: 1)),
-      'clockIn': '08:00',
-      'clockOut': '17:15',
-      'status': 'Hadir',
-    },
-    {
-      'date': DateTime.now().subtract(Duration(days: 2)),
-      'clockIn': '08:30',
-      'clockOut': '17:45',
-      'status': 'Terlambat',
-    },
-    {
-      'date': DateTime.now().subtract(Duration(days: 3)),
-      'clockIn': '--:--',
-      'clockOut': '--:--',
-      'status': 'Izin',
-    },
-  ];
+  // final List<Map<String, dynamic>> _recentAttendance = [
+  //   {
+  //     'date': DateTime.now().subtract(Duration(days: 0)),
+  //     'clockIn': '08:05',
+  //     'clockOut': '17:30',
+  //     'status': 'Hadir',
+  //   },
+  //   {
+  //     'date': DateTime.now().subtract(Duration(days: 1)),
+  //     'clockIn': '08:00',
+  //     'clockOut': '17:15',
+  //     'status': 'Hadir',
+  //   },
+  //   {
+  //     'date': DateTime.now().subtract(Duration(days: 2)),
+  //     'clockIn': '08:30',
+  //     'clockOut': '17:45',
+  //     'status': 'Terlambat',
+  //   },
+  //   {
+  //     'date': DateTime.now().subtract(Duration(days: 3)),
+  //     'clockIn': '--:--',
+  //     'clockOut': '--:--',
+  //     'status': 'Izin',
+  //   },
+  // ];
 
   // Sample data for attendance statistics
-  final Map<String, int> _attendanceStats = {
-    'Hadir': 18,
-    'Terlambat': 2,
-    'Izin': 1,
-    'Sakit': 1,
-  };
+  // final Map<String, int> _attendanceStats = {
+  //   'Hadir': 18,
+  //   'Terlambat': 2,
+  //   'Izin': 1,
+  //   'Sakit': 1,
+  // };
 
   // Add this function to your _HomePageState class
   void _showLoadingDialog(BuildContext context) {
@@ -1071,63 +1100,64 @@ Widget _buildShortcutItem(String title, IconData icon, Color color) {
 }
 
   // ignore: unused_element
-  Widget _buildAttendanceStatsCard() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            'Statistik Kehadiran Bulan Ini',
-            style: GoogleFonts.outfit(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: ShapeDecoration(
-            color: Colors.white,
-            shape: SmoothRectangleBorder(
-              borderRadius: SmoothBorderRadius(
-                cornerRadius: 20,
-                cornerSmoothing: 1,
-              ),
-              side: BorderSide(color: Colors.grey.shade100, width: 2),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                'Hadir',
-                _attendanceStats['Hadir'] ?? 0,
-                Colors.green,
-              ),
-              _buildStatItem(
-                'Terlambat',
-                _attendanceStats['Terlambat'] ?? 0,
-                Colors.orange,
-              ),
-              _buildStatItem(
-                'Izin',
-                _attendanceStats['Izin'] ?? 0,
-                Colors.blue,
-              ),
-              _buildStatItem(
-                'Sakit',
-                _attendanceStats['Sakit'] ?? 0,
-                Colors.red,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _buildAttendanceStatsCard() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Padding(
+  //         padding: const EdgeInsets.only(left: 4, bottom: 8),
+  //         child: Text(
+  //           'Statistik Kehadiran Bulan Ini',
+  //           style: GoogleFonts.outfit(
+  //             fontSize: 16,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.black87,
+  //           ),
+  //         ),
+  //       ),
+  //       Container(
+  //         padding: EdgeInsets.all(16),
+  //         decoration: ShapeDecoration(
+  //           color: Colors.white,
+  //           shape: SmoothRectangleBorder(
+  //             borderRadius: SmoothBorderRadius(
+  //               cornerRadius: 20,
+  //               cornerSmoothing: 1,
+  //             ),
+  //             side: BorderSide(color: Colors.grey.shade100, width: 2),
+  //           ),
+  //         ),
+  //         child: Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //           children: [
+  //             _buildStatItem(
+  //               'Hadir',
+  //               _attendanceStats['Hadir'] ?? 0,
+  //               Colors.green,
+  //             ),
+  //             _buildStatItem(
+  //               'Terlambat',
+  //               _attendanceStats['Terlambat'] ?? 0,
+  //               Colors.orange,
+  //             ),
+  //             _buildStatItem(
+  //               'Izin',
+  //               _attendanceStats['Izin'] ?? 0,
+  //               Colors.blue,
+  //             ),
+  //             _buildStatItem(
+  //               'Sakit',
+  //               _attendanceStats['Sakit'] ?? 0,
+  //               Colors.red,
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
+  // ignore: unused_element
   Widget _buildStatItem(String label, int count, Color color) {
     return Column(
       children: [

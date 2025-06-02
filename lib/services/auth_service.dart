@@ -659,4 +659,32 @@ class AuthService {
       return [];
     }
   }
+
+  static Future<List<Map<String, dynamic>>> getLatestAttendance(int userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/attendance_latest.php'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'karyawan_id': userId.toString(),
+        },
+      );
+
+      if (response.statusCode != 200 || response.body.isEmpty) {
+        return [];
+      }
+
+      final data = jsonDecode(response.body);
+      if (data['success'] != true || data['history'] == null || data['history'] is! List) {
+        return [];
+      }
+
+      return List<Map<String, dynamic>>.from(data['history']);
+    } catch (e) {
+      return [];
+    }
+  }
+
 }
