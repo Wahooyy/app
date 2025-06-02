@@ -7,6 +7,7 @@ import 'package:figma_squircle/figma_squircle.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'dart:io';
 import '../services/auth_service.dart';
 import 'profile.dart';
 import 'ticket_support_page.dart';
@@ -26,6 +27,7 @@ class _HomePageState extends State<HomePage> {
     (_) => GlobalKey<_ScaleIconState>(),
   );
   // ignore: unused_field
+  bool _isLoading = false;
   bool _isLoadingProfile = true;
   bool _checkedInToday = false;
   String? _jamIn;
@@ -259,38 +261,114 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  
   Future<void> _startAttendanceFlow() async {
-    String? scannedCode = await showDialog(
-      context: context,
-      builder: (_) => QRScanDialog(),
-    );
+    setState(() => _isLoading = true);
 
-    if (scannedCode == null) return;
+    try {
+      // Step 1: QR Code Scanner
+      String? scannedCode = await showDialog(
+        context: context,
+        builder: (_) => QRScanDialog(),
+      );
 
-    bool authenticated = await auth.authenticate(
-      localizedReason: 'Verifikasi fingerprint untuk absensi',
-      options: const AuthenticationOptions(biometricOnly: true),
-    );
+      if (scannedCode == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
 
-    if (!authenticated) {
-      _showMessage("Verifikasi fingerprint gagal.");
-      return;
+      // Step 2: Check if biometrics are available
+      bool canCheckBiometrics = await auth.canCheckBiometrics;
+      if (!canCheckBiometrics) {
+        _showMessage('Biometric authentication not available on this device');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      List<BiometricType> availableBiometrics = await auth.getAvailableBiometrics();
+      if (availableBiometrics.isEmpty) {
+        _showMessage('No biometric authentication methods available');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Step 3: Get the biometric type string for user-friendly messages
+      String biometricType = await _getBiometricTypeString();
+
+      // Step 4: Biometric Authentication
+      bool authenticated = await auth.authenticate(
+        localizedReason: Platform.isIOS 
+          ? 'Use $biometricType to verify attendance'
+          : 'Verifikasi untuk absensi',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+          sensitiveTransaction: true,
+        ),
+      );
+
+      if (!authenticated) {
+        _showMessage("$biometricType authentication failed. Please try again.");
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Step 5: Show loading dialog and submit attendance
+      _showLoadingDialog(context);
+      String mode = _selectedAttendanceTab == 'Masuk' ? 'checkin' : 'checkout';
+      bool success = await AuthService.submitAttendance(scannedCode, mode);
+
+      // Step 6: Close loading dialog
+      Navigator.of(context).pop();
+
+      // Step 7: Handle result
+      if (success) {
+        _showSuccessDialog(
+          context,
+          "${_selectedAttendanceTab} berhasil!",
+        );
+        await _loadCheckinStatus();
+      } else {
+        _showMessage("Gagal menyimpan absensi.");
+      }
+    } catch (e) {
+      print('Attendance flow error: $e');
+      // Close loading dialog if it's open
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+      _showMessage('An error occurred. Please try again.');
+    } finally {
+      setState(() => _isLoading = false);
     }
+  }
 
-    _showLoadingDialog(context); // 1. tampilkan dialog loading
-    String mode = _selectedAttendanceTab == 'Masuk' ? 'checkin' : 'checkout';
-    bool success = await AuthService.submitAttendance(scannedCode, mode); // 2. tunggu API
-
-    Navigator.of(context).pop(); // 3. tutup loading dialog
-
-    if (success) {
-      _showSuccessDialog(
-        context,
-        "${_selectedAttendanceTab} berhasil!",
-      ); // 4. tampilkan dialog sukses
-      await _loadCheckinStatus();
-    } else {
-      _showMessage("Gagal menyimpan absensi."); // 4. atau error message
+  // Helper method to get biometric type string (add this if you don't have it)
+  Future<String> _getBiometricTypeString() async {
+    try {
+      List<BiometricType> availableBiometrics = await auth.getAvailableBiometrics();
+      
+      if (Platform.isIOS) {
+        if (availableBiometrics.contains(BiometricType.face)) {
+          return 'Face ID';
+        } else if (availableBiometrics.contains(BiometricType.fingerprint)) {
+          return 'Touch ID';
+        } else if (availableBiometrics.contains(BiometricType.strong)) {
+          return 'Biometric ID';
+        }
+      } else if (Platform.isAndroid) {
+        if (availableBiometrics.contains(BiometricType.fingerprint)) {
+          return 'Fingerprint';
+        } else if (availableBiometrics.contains(BiometricType.face)) {
+          return 'Face Recognition';
+        } else if (availableBiometrics.contains(BiometricType.strong)) {
+          return 'Biometric';
+        }
+      }
+      return 'Biometric';
+    } catch (e) {
+      print('Error getting biometric type: $e');
+      return 'Biometric';
     }
   }
 
