@@ -416,7 +416,9 @@ class AuthService {
 
   static Future<File> _createTempFile(Uint8List data) async {
     final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final file = File(
+      '${tempDir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
     await file.writeAsBytes(data);
     return file;
   }
@@ -536,7 +538,9 @@ class AuthService {
       print('Sending attendance request with face image: ${faceImage != null}');
 
       // Send the request
-      final streamedResponse = await request.send().timeout(Duration(seconds: 30));
+      final streamedResponse = await request.send().timeout(
+        Duration(seconds: 30),
+      );
       final res = await http.Response.fromStream(streamedResponse);
 
       print('HTTP Status Code: ${res.statusCode}');
@@ -639,33 +643,71 @@ class AuthService {
   }
 
   static Future<Map<String, dynamic>> getTodayCheckinStatus() async {
-    final deviceInfo = DeviceInfoPlugin();
-    String deviceId = '';
-
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      deviceId = androidInfo.id;
-    } else if (Platform.isIOS) {
-      final iosInfo = await deviceInfo.iosInfo;
-      deviceId = iosInfo.identifierForVendor ?? 'unknown';
-    }
-
-    final res = await http.post(
-      Uri.parse('$baseUrl/get_today_checkin.php'),
-      body: {'device_id': deviceId},
-    );
-
-    // ignore: unnecessary_null_comparison
-    if (res.body == null || res.body.trim().isEmpty) {
-      return {'success': false, 'checked_in': false};
-    }
-
     try {
-      final data = jsonDecode(res.body);
-      return data;
+      // Get the logged-in user ID
+      final userId = await getUserId();
+      if (userId == null) {
+        return {
+          'success': false,
+          'message': 'User not logged in',
+          'checked_in': false,
+          'checked_out': false,
+        };
+      }
+
+      // Get user profile to get the NIP (karyawan_id)
+      final userProfile = await getUserProfile();
+      if (userProfile == null || userProfile['nip'] == null) {
+        return {
+          'success': false,
+          'message': 'User profile not found',
+          'checked_in': false,
+          'checked_out': false,
+        };
+      }
+
+      final karyawanId = userProfile['nip'];
+
+      final res = await http.post(
+        Uri.parse('$baseUrl/get_today_checkin.php'),
+        body: {'user_id': userId.toString(), 'karyawan_id': karyawanId},
+      );
+
+      if (res.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'Failed to fetch check-in status',
+          'checked_in': false,
+          'checked_out': false,
+        };
+      }
+
+      final data = json.decode(res.body);
+
+      if (data['success'] == true) {
+        return {
+          'success': true,
+          'checked_in': data['checked_in'] ?? false,
+          'jam_in': data['jam_in'],
+          'checked_out': data['checked_out'] ?? false,
+          'jam_out': data['jam_out'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get check-in status',
+          'checked_in': false,
+          'checked_out': false,
+        };
+      }
     } catch (e) {
-      print('Error decoding checkin status: $e');
-      return {'success': false, 'checked_in': false};
+      print('getTodayCheckinStatus error: $e');
+      return {
+        'success': false,
+        'message': 'An error occurred',
+        'checked_in': false,
+        'checked_out': false,
+      };
     }
   }
 

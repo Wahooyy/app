@@ -430,10 +430,13 @@ class _HomePageState extends State<HomePage> {
             // Update the check-in/check-out status
             await _loadCheckinStatus();
             await fetchRecentAttendance();
-            
+
             // Show success message after state is updated
             if (mounted) {
-              _showSuccessDialog(context, "${_selectedAttendanceTab} berhasil!");
+              _showSuccessDialog(
+                context,
+                "${_selectedAttendanceTab} berhasil!",
+              );
               // Force a rebuild to update the button state
               setState(() {});
             }
@@ -586,41 +589,22 @@ class _HomePageState extends State<HomePage> {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now()),
-            style: GoogleFonts.outfit(
-              color: Colors.black54,
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
+      title: Image.asset(
+        'assets/logoappbar.png', // Make sure to add your logo to assets
+        height: 18,
       ),
       actions: [
         IconButton(
-          icon: Container(
-            padding: EdgeInsets.all(8),
-            decoration: ShapeDecoration(
-              color: _primaryColor.withOpacity(0.1),
-              shape: SmoothRectangleBorder(
-                borderRadius: SmoothBorderRadius(
-                  cornerRadius: 10,
-                  cornerSmoothing: 1,
-                ),
-              ),
-            ),
-            child: Icon(
-              HugeIcons.strokeRoundedNotification02,
-              color: _primaryColor,
-              size: 20,
-            ),
+          icon: Icon(
+            HugeIcons.strokeRoundedNotification02,
+            color: Colors.black, // Black icon
+            size: 24,
           ),
-          onPressed: () {},
+          onPressed: () {
+            // Handle notification tap
+          },
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -641,173 +625,161 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHomeContent() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildWelcomeCard(),
-          SizedBox(height: 20),
-          _buildAttendanceCard(), // New attendance card with check-in/check-out tabs
-          SizedBox(height: 20),
-          _buildHRMShortcutsCard(),
-          SizedBox(height: 20),
-          _buildRecentAttendanceCard(),
-          SizedBox(height: 20),
-        ],
+    return RefreshIndicator(
+      color: _primaryColor,
+      onRefresh: () async {
+        await Future.wait([
+          _loadUserProfile(),
+          _loadCheckinStatus(),
+          fetchRecentAttendance(),
+        ]);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeCard(),
+            const SizedBox(height: 20),
+            _buildHRMShortcutsCard(),
+            const SizedBox(height: 20),
+            _buildRecentAttendanceCard(),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildWelcomeCard() {
     return Container(
-      padding: EdgeInsets.all(20),
       decoration: ShapeDecoration(
-        color: Colors.white,
+        color: _primaryColor,
         shape: SmoothRectangleBorder(
           borderRadius: SmoothBorderRadius(
-            cornerRadius: 20,
+            cornerRadius: 32,
             cornerSmoothing: 1,
           ),
-          side: BorderSide(color: Colors.grey.shade100, width: 2),
         ),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: ShapeDecoration(
-              color: _primaryColor.withOpacity(0.1),
-              shape: SmoothRectangleBorder(
-                borderRadius: SmoothBorderRadius(
-                  cornerRadius: 16,
-                  cornerSmoothing: 1,
-                ),
-              ),
-            ),
-            child: Center(
-              child: Text(
-                (_userData['adminname'] != null &&
-                        _userData['adminname'].isNotEmpty)
-                    ? _userData['adminname'].substring(0, 1)
-                    : '?', // fallback kalau kosong/null
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryColor,
-                ),
+          // Decorative graphics in top right
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Opacity(
+              opacity: 0.1,
+              child: Icon(
+                HugeIcons.strokeRoundedCd,
+                size: 120,
+                color: Colors.white,
               ),
             ),
           ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Selamat Datang,',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  _userData['adminname'],
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  _userData['username'],
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: ShapeDecoration(
-              color: Colors.green.withOpacity(0.1),
-              shape: SmoothRectangleBorder(
-                borderRadius: SmoothBorderRadius(
-                  cornerRadius: 8,
-                  cornerSmoothing: 1,
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User info section
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _userData['adminname'] ?? '',
+                      style: GoogleFonts.outfit(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _userData['username'] ?? '',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                    // const SizedBox(height: 16),
+                  ],
                 ),
               ),
-            ),
-            child: Text(
-              'Aktif',
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.green,
-              ),
-            ),
+
+              // Attendance card
+              _buildAttendanceCard(),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // New widget for attendance check-in/check-out
   Widget _buildAttendanceCard() {
     return Container(
+      margin: const EdgeInsets.all(16),
       decoration: ShapeDecoration(
         color: Colors.white,
         shape: SmoothRectangleBorder(
           borderRadius: SmoothBorderRadius(
-            cornerRadius: 20,
+            cornerRadius: 24,
             cornerSmoothing: 1,
           ),
-          side: BorderSide(color: Colors.grey.shade100, width: 2),
         ),
+        shadows: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // Tab selector
-          Container(
-            padding: EdgeInsets.all(6),
-            decoration: ShapeDecoration(
-              color: Colors.grey.shade50,
-              shape: SmoothRectangleBorder(
-                borderRadius: SmoothBorderRadius(
-                  cornerRadius: 16,
-                  cornerSmoothing: 1,
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16),
+            child: Container(
+              // padding: const EdgeInsets.all(4),
+              decoration: ShapeDecoration(
+                color: Colors.grey.shade100,
+                shape: SmoothRectangleBorder(
+                  borderRadius: SmoothBorderRadius(
+                    cornerRadius: 12,
+                    cornerSmoothing:
+                        1, // Match the smoothing value used elsewhere
+                  ),
                 ),
               ),
-            ),
-            margin: EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildAttendanceTabButton(
-                    'Masuk',
-                    HugeIcons.strokeRoundedClock01,
-                    _selectedAttendanceTab == 'Masuk',
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildAttendanceTabButton(
+                      'Masuk',
+                      HugeIcons.strokeRoundedClock01,
+                      _selectedAttendanceTab == 'Masuk',
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildAttendanceTabButton(
-                    'Pulang',
-                    HugeIcons.strokeRoundedClock01,
-                    _selectedAttendanceTab == 'Pulang',
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildAttendanceTabButton(
+                      'Pulang',
+                      HugeIcons.strokeRoundedClock01,
+                      _selectedAttendanceTab == 'Pulang',
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
           // Content
           Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             child: Column(
               children: [
                 Container(
@@ -822,7 +794,7 @@ class _HomePageState extends State<HomePage> {
                           color: Colors.black87,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
                         DateFormat(
                           'EEEE, d MMMM yyyy',
@@ -836,7 +808,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -872,7 +844,7 @@ class _HomePageState extends State<HomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _primaryColor,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: SmoothRectangleBorder(
                         borderRadius: SmoothBorderRadius(
                           cornerRadius: 12,
@@ -902,13 +874,13 @@ class _HomePageState extends State<HomePage> {
         });
       },
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: ShapeDecoration(
           color: isSelected ? _primaryColor : Colors.transparent,
           shape: SmoothRectangleBorder(
             borderRadius: SmoothBorderRadius(
               cornerRadius: 12,
-              cornerSmoothing: 1,
+              cornerSmoothing: 0.8,
             ),
           ),
         ),
@@ -920,7 +892,7 @@ class _HomePageState extends State<HomePage> {
               size: 18,
               color: isSelected ? Colors.white : Colors.grey,
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               label,
               style: GoogleFonts.outfit(
@@ -951,7 +923,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         Container(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           decoration: ShapeDecoration(
             color: Colors.white,
             shape: SmoothRectangleBorder(
@@ -971,36 +943,32 @@ class _HomePageState extends State<HomePage> {
                     child: _buildShortcutItem(
                       'Izin',
                       HugeIcons.strokeRoundedCalendarRemove01,
-                      Colors.blue,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildShortcutItem(
                       'Slip Gaji',
                       HugeIcons.strokeRoundedMoney01,
-                      Colors.green,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildShortcutItem(
                       'Kehadiran',
                       HugeIcons.strokeRoundedFile01,
-                      Colors.orange,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildShortcutItem(
                       'Lembur',
                       HugeIcons.strokeRoundedClock03,
-                      Colors.purple,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               // Second row - 4 items
               Row(
                 children: [
@@ -1008,31 +976,27 @@ class _HomePageState extends State<HomePage> {
                     child: _buildShortcutItem(
                       'Reimburse',
                       HugeIcons.strokeRoundedReceiptDollar,
-                      Colors.teal,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildShortcutItem(
                       'Kinerja',
                       HugeIcons.strokeRoundedTarget01,
-                      Colors.red,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildShortcutItem(
                       'Absensi',
                       HugeIcons.strokeRoundedCheckmarkCircle01,
-                      Colors.indigo,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildShortcutItem(
                       'Karyawan',
                       HugeIcons.strokeRoundedUser,
-                      Colors.pink,
                     ),
                   ),
                 ],
@@ -1044,21 +1008,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildShortcutItem(String title, IconData icon, Color color) {
+  Widget _buildShortcutItem(String title, IconData icon) {
     return GestureDetector(
-      onTap: () {
-        _showComingSoonTooltip();
-      },
+      onTap: _showComingSoonTooltip,
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          SizedBox(height: 6),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _primaryColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(child: Icon(icon, color: _primaryColor, size: 24)),
+          ),
+          const SizedBox(height: 6),
           Text(
             title,
             style: GoogleFonts.outfit(
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
+              height: 1.1, // Better line height for multi-line text
             ),
             textAlign: TextAlign.center,
             maxLines: 2,

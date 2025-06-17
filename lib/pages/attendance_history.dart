@@ -742,7 +742,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                     Container(
                       padding: EdgeInsets.all(16),
                       decoration: ShapeDecoration(
-                        color: _primaryColor.withOpacity(0.05),
+                        color: _primaryColor,
                         shape: SmoothRectangleBorder(
                           borderRadius: SmoothBorderRadius(
                             cornerRadius: 20,
@@ -755,17 +755,17 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                           Container(
                             padding: EdgeInsets.all(8),
                             decoration: ShapeDecoration(
-                              color: _primaryColor.withOpacity(0.1),
+                              color: Colors.white.withOpacity(0.2),
                               shape: SmoothRectangleBorder(
                                 borderRadius: SmoothBorderRadius(
-                                  cornerRadius: 10,
+                                  cornerRadius: 8,
                                   cornerSmoothing: 1,
                                 ),
                               ),
                             ),
                             child: Icon(
                               HugeIcons.strokeRoundedCalendar03,
-                              color: _primaryColor,
+                              color: Colors.white,
                               size: 20,
                             ),
                           ),
@@ -779,14 +779,14 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                    color: Colors.white,
                                   ),
                                 ),
                                 Text(
                                   'Tap tanggal untuk memilih rentang',
                                   style: GoogleFonts.outfit(
                                     fontSize: 12,
-                                    color: Colors.black54,
+                                    color: Colors.white.withOpacity(0.9),
                                   ),
                                 ),
                               ],
@@ -1129,18 +1129,15 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                       Container(
                         padding: EdgeInsets.all(24),
                         decoration: ShapeDecoration(
-                          color: Colors.red.shade50,
-                          shape: SmoothRectangleBorder(
-                            borderRadius: SmoothBorderRadius(
-                              cornerRadius: 20,
-                              cornerSmoothing: 1,
-                            ),
+                          color: _primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: Icon(
                           HugeIcons.strokeRoundedAlert02,
                           size: 48,
-                          color: Colors.red.shade400,
+                          color: Colors.white,
                         ),
                       ),
                       SizedBox(height: 16),

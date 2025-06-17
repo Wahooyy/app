@@ -46,6 +46,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.jpg
+    - assets/logoappbar.png
 
 flutter_icons:
   android: true
@@ -55,7 +56,6 @@ flutter_icons:
 flutter_native_splash:
   color: "#FFFFFF"
   image: assets/logo.jpg
-  branding: assets/logo.jpg
   android_gravity: center
   ios_content_mode: center
   fullscreen: true
