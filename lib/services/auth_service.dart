@@ -4,8 +4,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:http/http.dart' as http;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -412,10 +414,18 @@ class AuthService {
     return '';
   }
 
+  static Future<File> _createTempFile(Uint8List data) async {
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await file.writeAsBytes(data);
+    return file;
+  }
+
   static Future<Map<String, dynamic>> submitAttendance(
     String locationCode,
-    String mode,
-  ) async {
+    String mode, {
+    Uint8List? faceImage,
+  }) async {
     print('Scanned location code: $locationCode');
 
     try {
@@ -491,29 +501,43 @@ class AuthService {
         };
       }
 
-      // Prepare the POST body
-      final postBody = {
+      // Create multipart request
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/submit_attendance.php'),
+      );
+
+      // Add headers
+      request.headers['Authorization'] = 'Bearer $token';
+
+      // Add fields
+      request.fields.addAll({
         'location_code': locationCode,
         'device_id': deviceId,
         'latitude': position.latitude.toString(),
         'longitude': position.longitude.toString(),
         'mode': mode,
         'token': token, // Add token to POST body as fallback
-      };
+      });
 
-      print('POST body: $postBody');
+      // Add face image if provided
+      if (faceImage != null) {
+        final file = await _createTempFile(faceImage);
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'face_image',
+            file.path,
+            filename: 'face_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
+      }
 
-      // Make HTTP request with timeout
-      final res = await http
-          .post(
-            Uri.parse('$baseUrl/submit_attendance.php'),
-            body: postBody,
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(Duration(seconds: 30));
+      print('Sending attendance request with face image: ${faceImage != null}');
+
+      // Send the request
+      final streamedResponse = await request.send().timeout(Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamedResponse);
 
       print('HTTP Status Code: ${res.statusCode}');
       print('API raw response: "${res.body}"');

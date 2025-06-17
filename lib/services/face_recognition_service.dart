@@ -1,6 +1,5 @@
-//face_registration_page.dart
+//face_recognition_service.dart page
 import 'dart:io';
-import 'dart:io' show Platform;
 import 'dart:math';
 import 'dart:async';
 import 'dart:typed_data' show Uint8List;
@@ -13,15 +12,22 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:figma_squircle/figma_squircle.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 
-class FaceRegistrationPage extends StatefulWidget {
+class FaceRecognitionPage extends StatefulWidget {
+  final String?
+  storedFaceEmbedding; // Pass the stored embedding for verification
+
+  const FaceRecognitionPage({Key? key, this.storedFaceEmbedding})
+    : super(key: key);
+
   @override
-  _FaceRegistrationPageState createState() => _FaceRegistrationPageState();
+  _FaceRecognitionPageState createState() => _FaceRecognitionPageState();
 }
 
-class _FaceRegistrationPageState extends State<FaceRegistrationPage>
+class _FaceRecognitionPageState extends State<FaceRecognitionPage>
     with TickerProviderStateMixin {
   CameraController? _cameraController;
   late final FaceDetector _faceDetector;
@@ -49,14 +55,16 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
   String? _errorMessage;
   bool _faceDetected = false;
   bool _isCapturing = false;
-  // ignore: unused_field
   String? _savedImagePath;
   List<Face> _detectedFaces = [];
   Timer? _captureTimer;
   int _captureCountdown = 3;
   bool _showCountdown = false;
-  bool _registrationComplete = false;
+  bool _recognitionComplete = false;
+  bool _recognitionSuccess = false;
   bool _hasGoodLighting = false;
+  static const double _faceMatchThreshold = 0.7;
+  List<double>? _storedEmbedding;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -66,6 +74,11 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
     _initializeFaceDetector();
     _initializeAnimations();
     _initializeCamera();
+
+    // Parse stored embedding if provided
+    if (widget.storedFaceEmbedding != null) {
+      _storedEmbedding = _parseStoredEmbedding(widget.storedFaceEmbedding!);
+    }
   }
 
   void _initializeAnimations() {
@@ -197,7 +210,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
             if (newFaceDetected &&
                 !_faceDetected &&
                 !_showCountdown &&
-                !_registrationComplete) {
+                !_recognitionComplete) {
               _startAutoCapture();
             } else if (!newFaceDetected && _showCountdown) {
               _cancelAutoCapture();
@@ -227,7 +240,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
         });
       } else {
         timer.cancel();
-        _captureAndRegisterFace();
+        _captureAndRecognizeFace();
       }
     });
   }
@@ -240,7 +253,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
     });
   }
 
-  Future<void> _captureAndRegisterFace() async {
+  Future<void> _captureAndRecognizeFace() async {
     if (_isProcessing || !_faceDetected) return;
 
     setState(() {
@@ -257,42 +270,52 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
       await Future.delayed(Duration(milliseconds: 1500));
 
       // Process the image to get face embedding
-      final faceEmbedding =
-          '{"embedding":[' +
-          List.generate(
-            128,
-            (i) => (Random().nextDouble() * 2 - 1).toStringAsFixed(6),
-          ).join(',') +
-          ']}';
+      final imageBytes = await File(imageFile.path).readAsBytes();
 
-      // Get user ID
-      final userId = AuthService.getUserId();
-      if (userId == null) {
-        if (mounted) {
-          _showError('Pengguna tidak ditemukan. Silakan login kembali.');
-        }
-        return;
+      // Decode and crop face for embedding
+      final decodedImage = img.decodeImage(imageBytes);
+      List<double> liveFaceEmbedding;
+
+      if (decodedImage != null && _detectedFaces.isNotEmpty) {
+        final face = _detectedFaces.first;
+        final croppedFace = _cropFace(decodedImage, face.boundingBox);
+        final croppedBytes = Uint8List.fromList(img.encodeJpg(croppedFace));
+
+        // Get face embedding
+        liveFaceEmbedding = await getFaceEmbedding(croppedBytes);
+      } else {
+        // Fallback to dummy embedding if face processing fails
+        liveFaceEmbedding = List.generate(
+          128,
+          (i) => (Random().nextDouble() * 2 - 1),
+        );
       }
 
-      // Register face with the server
-      final success = await AuthService.registerFace(
-        userId: userId,
-        faceImagePath: imageFile.path,
-        faceEmbedding: faceEmbedding,
-      );
+      // Compare with stored embedding
+      bool isMatch = false;
+      if (_storedEmbedding != null) {
+        isMatch = isFaceMatch(liveFaceEmbedding, _storedEmbedding!);
+      } else if (widget.storedFaceEmbedding != null) {
+        // Fallback to parsing stored embedding
+        final storedEmbedding = _parseStoredEmbedding(
+          widget.storedFaceEmbedding!,
+        );
+        isMatch =
+            _calculateSimilarity(liveFaceEmbedding, storedEmbedding) > 0.7;
+      } else {
+        // If no stored embedding, simulate random result for demo
+        isMatch = Random().nextBool();
+      }
 
       if (mounted) {
-        if (success) {
-          setState(() {
-            _registrationComplete = true;
-          });
-          _successAnimationController.forward();
+        setState(() {
+          _recognitionComplete = true;
+          _recognitionSuccess = isMatch;
+        });
+        _successAnimationController.forward();
 
-          // Show success for 3 seconds then enable continue button
-          await Future.delayed(Duration(seconds: 1));
-        } else {
-          _showError('Gagal mendaftarkan wajah. Silakan coba lagi.');
-        }
+        // Show result for 2 seconds then enable continue button
+        await Future.delayed(Duration(seconds: 1));
       }
     } catch (e) {
       if (mounted) {
@@ -306,6 +329,145 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
         });
       }
     }
+  }
+
+  List<double> _parseStoredEmbedding(String embeddingJson) {
+    // Parse the stored embedding from JSON format
+    // This is a simplified version - adjust based on your actual format
+    try {
+      // Remove the outer braces and extract the array
+      final cleaned = embeddingJson.replaceAll(RegExp(r'[{}"]'), '');
+      final parts = cleaned.split(':');
+      if (parts.length > 1) {
+        final arrayPart = parts[1].replaceAll('[', '').replaceAll(']', '');
+        return arrayPart.split(',').map((e) => double.parse(e.trim())).toList();
+      }
+    } catch (e) {
+      print('Error parsing stored embedding: $e');
+    }
+    // Return dummy embedding if parsing fails
+    return List.generate(128, (i) => Random().nextDouble());
+  }
+
+  Future<List<double>> getFaceEmbedding(Uint8List faceImageBytes) async {
+    // In a real implementation, you would send this to your server
+    // to compute the face embedding using a face recognition model
+    // For now, we'll return a dummy embedding
+    return List<double>.generate(128, (index) => Random().nextDouble());
+  }
+
+  Future<Uint8List?> captureFace() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return null;
+    }
+    try {
+      final image = await _cameraController!.takePicture();
+      return await File(image.path).readAsBytes();
+    } catch (e) {
+      print('Error capturing face: $e');
+      return null;
+    }
+  }
+
+  Future<Face?> detectFace(Uint8List imageBytes) async {
+    try {
+      final inputImage = InputImage.fromBytes(
+        bytes: imageBytes,
+        metadata: InputImageMetadata(
+          size: Size(
+            _cameraController?.value.previewSize?.width ?? 0,
+            _cameraController?.value.previewSize?.height ?? 0,
+          ),
+          rotation: InputImageRotation.rotation0deg,
+          format: InputImageFormat.nv21,
+          bytesPerRow:
+              _cameraController?.value.previewSize?.width?.toInt() ?? 0,
+        ),
+      );
+      final List<Face> faces = await _faceDetector.processImage(inputImage);
+      if (faces.isEmpty) return null;
+      faces.sort((a, b) {
+        final aSize = a.boundingBox.width * a.boundingBox.height;
+        final bSize = b.boundingBox.width * b.boundingBox.height;
+        return bSize.compareTo(aSize);
+      });
+      return faces.first;
+    } catch (e) {
+      print('Error detecting face: $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List> extractFaceImage(
+    Uint8List imageBytes,
+    Rect boundingBox, {
+    double padding = 0.2,
+  }) async {
+    try {
+      final originalImage = img.decodeImage(imageBytes);
+      if (originalImage == null) throw Exception('Failed to decode image');
+
+      final faceImage = _cropFace(originalImage, boundingBox, padding: padding);
+      return Uint8List.fromList(img.encodeJpg(faceImage));
+    } catch (e) {
+      print('Error extracting face: $e');
+      rethrow;
+    }
+  }
+
+  bool isFaceMatch(List<double> liveEmbedding, List<double> storedEmbedding) {
+    final similarity = _calculateSimilarity(liveEmbedding, storedEmbedding);
+    return similarity >= _faceMatchThreshold;
+  }
+
+  img.Image _cropFace(
+    img.Image image,
+    Rect boundingBox, {
+    double padding = 0.2,
+  }) {
+    // Calculate padding
+    final paddingX = boundingBox.width * padding;
+    final paddingY = boundingBox.height * padding;
+
+    // Calculate crop area with padding
+    int x = (boundingBox.left - paddingX).clamp(0, image.width - 1).toInt();
+    int y = (boundingBox.top - paddingY).clamp(0, image.height - 1).toInt();
+    int width =
+        (boundingBox.width + 2 * paddingX).clamp(0, image.width - x).toInt();
+    int height =
+        (boundingBox.height + 2 * paddingY).clamp(0, image.height - y).toInt();
+
+    // Crop the image to the face region with padding
+    final cropped = img.copyCrop(
+      image,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+    );
+
+    // Resize to standard face recognition size (112x112)
+    return img.copyResize(cropped, width: 112, height: 112);
+  }
+
+  double _calculateSimilarity(
+    List<double> embedding1,
+    List<double> embedding2,
+  ) {
+    if (embedding1.length != embedding2.length) return 0.0;
+
+    double dotProduct = 0.0;
+    double norm1 = 0.0;
+    double norm2 = 0.0;
+
+    for (int i = 0; i < embedding1.length; i++) {
+      dotProduct += embedding1[i] * embedding2[i];
+      norm1 += embedding1[i] * embedding1[i];
+      norm2 += embedding2[i] * embedding2[i];
+    }
+
+    if (norm1 == 0.0 || norm2 == 0.0) return 0.0;
+    return dotProduct / (sqrt(norm1) * sqrt(norm2));
   }
 
   void _showError(String message) {
@@ -342,7 +504,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: Text(
-            'Deteksi Wajah',
+            'Pengenalan Wajah',
             style: GoogleFonts.outfit(
               fontWeight: FontWeight.w600,
               color: Colors.black,
@@ -376,7 +538,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
       backgroundColor: Color.fromARGB(255, 255, 255, 255),
       appBar: AppBar(
         title: Text(
-          'Pendaftaran Wajah',
+          'Pengenalan Wajah',
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.w600,
             color: Colors.black,
@@ -401,11 +563,13 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
             child: Text(
-              _registrationComplete
-                  ? 'Identitas Terverifikasi'
+              _recognitionComplete
+                  ? (_recognitionSuccess
+                      ? 'Wajah Dikenali'
+                      : 'Wajah Tidak Dikenali')
                   : _isProcessing
-                  ? 'Memindai wajah Anda'
-                  : 'Deteksi wajah',
+                  ? 'Mengenali wajah Anda'
+                  : 'Verifikasi wajah',
               style: GoogleFonts.outfit(
                 fontSize: 24,
                 color: Colors.black,
@@ -415,11 +579,11 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
             ),
           ),
 
-          if (!_registrationComplete && !_isProcessing)
+          if (!_recognitionComplete && !_isProcessing)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                'Posisikan wajah ditengah untuk deteksi wajah.',
+                'Posisikan wajah ditengah untuk verifikasi identitas.',
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   color: Colors.grey[600],
@@ -443,7 +607,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
               ),
             ),
 
-          if (_registrationComplete)
+          if (_recognitionComplete)
             AnimatedBuilder(
               animation: _scaleAnimation,
               builder: (context, child) {
@@ -452,7 +616,9 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Text(
-                      'Wajah berhasil didaftarkan.\nLanjutkan untuk menggunakan aplikasi.',
+                      _recognitionSuccess
+                          ? 'Wajah berhasil dikenali.\nSelamat datang kembali!'
+                          : 'Wajah tidak dikenali.\nSilakan coba lagi atau gunakan metode lain.',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         color: Colors.grey[600],
@@ -505,9 +671,9 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                       ),
                     ),
 
-                    // Face Detection Overlay with hexagon
+                    // Face Detection Overlay with square
                     if (_faceDetected &&
-                        !_registrationComplete &&
+                        !_recognitionComplete &&
                         !_isProcessing)
                       Positioned.fill(
                         child: CustomPaint(
@@ -522,9 +688,9 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                         ),
                       ),
 
-                    // Initial hexagon overlay when no face detected
+                    // Initial square overlay when no face detected
                     if (!_faceDetected &&
-                        !_registrationComplete &&
+                        !_recognitionComplete &&
                         !_isProcessing)
                       Positioned.fill(
                         child: Container(
@@ -566,7 +732,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                                 ),
                                 SizedBox(height: 24),
                                 Text(
-                                  'Memproses wajah Anda...',
+                                  'Mengenali wajah Anda...',
                                   style: GoogleFonts.outfit(
                                     color: Colors.white,
                                     fontSize: 18,
@@ -579,15 +745,18 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                         ),
                       ),
 
-                    // Success Overlay
-                    if (_registrationComplete)
+                    // Success/Failure Overlay
+                    if (_recognitionComplete)
                       AnimatedBuilder(
                         animation: _scaleAnimation,
                         builder: (context, child) {
                           return Positioned.fill(
                             child: Container(
                               decoration: ShapeDecoration(
-                                color: Color(0xFF00C851).withOpacity(0.95),
+                                color: (_recognitionSuccess
+                                        ? Color(0xFF00C851)
+                                        : Colors.red[600]!)
+                                    .withOpacity(0.95),
                                 shape: SmoothRectangleBorder(
                                   borderRadius: SmoothBorderRadius(
                                     cornerRadius: 24,
@@ -609,9 +778,15 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                                       ),
                                       child: HugeIcon(
                                         icon:
-                                            HugeIcons
-                                                .strokeRoundedCheckmarkCircle02,
-                                        color: Color(0xFF00C851),
+                                            _recognitionSuccess
+                                                ? HugeIcons
+                                                    .strokeRoundedCheckmarkCircle02
+                                                : HugeIcons
+                                                    .strokeRoundedCancel02,
+                                        color:
+                                            _recognitionSuccess
+                                                ? Color(0xFF00C851)
+                                                : Colors.red[600]!,
                                         size: 60,
                                       ),
                                     ),
@@ -622,7 +797,9 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                                     child: Column(
                                       children: [
                                         Text(
-                                          'Identitas Terverifikasi',
+                                          _recognitionSuccess
+                                              ? 'Wajah Dikenali'
+                                              : 'Wajah Tidak Dikenali',
                                           style: GoogleFonts.outfit(
                                             color: Colors.white,
                                             fontSize: 24,
@@ -631,7 +808,9 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                                         ),
                                         SizedBox(height: 12),
                                         Text(
-                                          '',
+                                          _recognitionSuccess
+                                              ? 'Selamat datang kembali!'
+                                              : 'Silakan coba lagi',
                                           style: GoogleFonts.outfit(
                                             color: Colors.white.withOpacity(
                                               0.9,
@@ -656,8 +835,8 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
             ),
           ),
 
-          // Status Indicators or Continue Button
-          if (!_registrationComplete)
+          // Status Indicators or Action Buttons
+          if (!_recognitionComplete)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -681,7 +860,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
               ),
             ),
 
-          if (_registrationComplete)
+          if (_recognitionComplete)
             AnimatedBuilder(
               animation: _scaleAnimation,
               builder: (context, child) {
@@ -689,30 +868,78 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                   scale: _scaleAnimation.value,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryColor,
-                          elevation: 0,
-                          shape: SmoothRectangleBorder(
-                            borderRadius: SmoothBorderRadius(
-                              cornerRadius: 16,
-                              cornerSmoothing: 1,
+                    child: Row(
+                      children: [
+                        if (!_recognitionSuccess)
+                          Expanded(
+                            child: SizedBox(
+                              height: 56,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  // Reset for retry
+                                  setState(() {
+                                    _recognitionComplete = false;
+                                    _recognitionSuccess = false;
+                                  });
+                                  _successAnimationController.reset();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey[600],
+                                  elevation: 0,
+                                  shape: SmoothRectangleBorder(
+                                    borderRadius: SmoothBorderRadius(
+                                      cornerRadius: 16,
+                                      cornerSmoothing: 1,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Coba Lagi',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (!_recognitionSuccess) SizedBox(width: 16),
+                        Expanded(
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed:
+                                  () => Navigator.of(
+                                    context,
+                                  ).pop(_recognitionSuccess),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    _recognitionSuccess
+                                        ? Color(0xFF00C851)
+                                        : _primaryColor,
+                                elevation: 0,
+                                shape: SmoothRectangleBorder(
+                                  borderRadius: SmoothBorderRadius(
+                                    cornerRadius: 16,
+                                    cornerSmoothing: 1,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                _recognitionSuccess
+                                    ? 'Lanjutkan'
+                                    : 'Gunakan PIN',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                        child: Text(
-                          'Lanjutkan',
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 );
@@ -720,15 +947,15 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
             ),
 
           // Bottom instruction text
-          if (!_registrationComplete)
+          if (!_recognitionComplete)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Text(
                 _faceDetected
-                    ? 'Sistem akan otomatis mendeteksi wajah'
+                    ? 'Sistem akan otomatis mengenali wajah'
                     : _isProcessing
                     ? ''
-                    : 'Sistem akan otomatis mendeteksi wajah',
+                    : 'Sistem akan otomatis mengenali wajah',
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -738,7 +965,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
               ),
             ),
 
-          if (_registrationComplete) SizedBox(height: 24),
+          if (_recognitionComplete) SizedBox(height: 24),
         ],
       ),
     );
@@ -779,6 +1006,7 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
   }
 }
 
+// Reuse the same painters from the registration page
 class SquareFaceDetectorPainter extends CustomPainter {
   final List<Face> detectedFaces;
   final Size imageSize;

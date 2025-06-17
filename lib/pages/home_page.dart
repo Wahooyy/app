@@ -1,19 +1,20 @@
 // lib/pages/home_page.dart
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_brace_in_string_interps, avoid_print, use_key_in_widget_constructors, library_private_types_in_public_api
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:figma_squircle/figma_squircle.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'dart:io';
+import 'package:intl/intl.dart';
+import '../services/face_recognition_service.dart';
 import '../services/auth_service.dart';
+import 'attendance_history.dart';
 import 'profile.dart';
 import 'ticket_support_page.dart';
-import 'attendance_history.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -21,7 +22,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final LocalAuthentication auth = LocalAuthentication();
   int _selectedIndex = 0;
   final Color _primaryColor = Color(0xFF143CFF);
   final List<GlobalKey<_ScaleIconState>> _iconKeys = List.generate(
@@ -38,7 +38,6 @@ class _HomePageState extends State<HomePage> {
   String? _jamOut;
   bool _loadingCheckinStatus = true;
   List<Map<String, dynamic>> _recentAttendance = [];
-
 
   Map<String, dynamic> _userData = {
     'adminname': '',
@@ -136,14 +135,15 @@ class _HomePageState extends State<HomePage> {
 
     // Format ulang agar cocok sama widget ListTile
     setState(() {
-      _recentAttendance = data.map((item) {
-        return {
-          'date': DateTime.parse(item['tgl_absen']),
-          'clockIn': item['jam_in'] ?? '-',
-          'clockOut': item['jam_out'] ?? '-',
-          'status': _capitalize(item['status']),
-        };
-      }).toList();
+      _recentAttendance =
+          data.map((item) {
+            return {
+              'date': DateTime.parse(item['tgl_absen']),
+              'clockIn': item['jam_in'] ?? '-',
+              'clockOut': item['jam_out'] ?? '-',
+              'status': _capitalize(item['status']),
+            };
+          }).toList();
     });
   }
 
@@ -151,42 +151,6 @@ class _HomePageState extends State<HomePage> {
     if (input.isEmpty) return '';
     return input[0].toUpperCase() + input.substring(1);
   }
-
-  // Sample data for recent attendance
-  // final List<Map<String, dynamic>> _recentAttendance = [
-  //   {
-  //     'date': DateTime.now().subtract(Duration(days: 0)),
-  //     'clockIn': '08:05',
-  //     'clockOut': '17:30',
-  //     'status': 'Hadir',
-  //   },
-  //   {
-  //     'date': DateTime.now().subtract(Duration(days: 1)),
-  //     'clockIn': '08:00',
-  //     'clockOut': '17:15',
-  //     'status': 'Hadir',
-  //   },
-  //   {
-  //     'date': DateTime.now().subtract(Duration(days: 2)),
-  //     'clockIn': '08:30',
-  //     'clockOut': '17:45',
-  //     'status': 'Terlambat',
-  //   },
-  //   {
-  //     'date': DateTime.now().subtract(Duration(days: 3)),
-  //     'clockIn': '--:--',
-  //     'clockOut': '--:--',
-  //     'status': 'Izin',
-  //   },
-  // ];
-
-  // Sample data for attendance statistics
-  // final Map<String, int> _attendanceStats = {
-  //   'Hadir': 18,
-  //   'Terlambat': 2,
-  //   'Izin': 1,
-  //   'Sakit': 1,
-  // };
 
   // Add this function to your _HomePageState class
   void _showLoadingDialog(BuildContext context) {
@@ -293,78 +257,207 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 20,
+                cornerSmoothing: 1,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: 20),
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      HugeIcons.strokeRoundedAlert01,
+                      color: Colors.red,
+                      size: 50,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 24),
+                Text(
+                  "Error",
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 12),
+                Text(
+                  message,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: SmoothRectangleBorder(
+                        borderRadius: SmoothBorderRadius(
+                          cornerRadius: 12,
+                          cornerSmoothing: 0.8,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      "OK",
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _startAttendanceFlow() async {
+    // Check if already loading
+    if (_isLoading) return;
+
     setState(() => _isLoading = true);
 
     try {
-      // Step 1: QR Code Scanner
-      String? scannedCode = await showDialog(
+      // Step 1: Show QR code scanner
+      final scannedCode = await showDialog<String>(
         context: context,
-        builder: (_) => QRScanDialog(),
+        builder: (context) => QRScanDialog(),
       );
 
-      if (scannedCode == null) {
+      if (scannedCode == null || scannedCode.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
-      // Step 2: Check if biometrics are available
-      bool canCheckBiometrics = await auth.canCheckBiometrics;
-      if (!canCheckBiometrics) {
-        _showMessage('Biometric authentication not available on this device');
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      List<BiometricType> availableBiometrics = await auth.getAvailableBiometrics();
-      if (availableBiometrics.isEmpty) {
-        _showMessage('No biometric authentication methods available');
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // Step 3: Get the biometric type string for user-friendly messages
-      String biometricType = await _getBiometricTypeString();
-
-      // Step 4: Biometric Authentication
-      bool authenticated = await auth.authenticate(
-        localizedReason: Platform.isIOS 
-          ? 'Use $biometricType to verify attendance'
-          : 'Verifikasi untuk absensi',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-          sensitiveTransaction: true,
-        ),
-      );
-
-      if (!authenticated) {
-        _showMessage("$biometricType authentication failed. Please try again.");
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // Step 5: Show loading dialog and submit attendance
+      // Show loading dialog while preparing face capture
       _showLoadingDialog(context);
-      String mode = _selectedAttendanceTab == 'Masuk' ? 'checkin' : 'checkout';
-      
-      // Use the new enhanced method
-      Map<String, dynamic> result = await AuthService.submitAttendance(scannedCode, mode);
 
-      // Step 6: Close loading dialog
-      Navigator.of(context).pop();
-
-      // Step 7: Handle result with detailed error messages
-      if (result['success'] == true) {
-        _showSuccessDialog(
-          context,
-          "${_selectedAttendanceTab} berhasil!",
+      try {
+        // Navigate to FaceRecognitionPage and wait for result
+        final bool? recognitionSuccess = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (context) => FaceRecognitionPage()),
         );
-        await _loadCheckinStatus();
-      } else {
-        // Show specific error message
-        String errorMessage = result['error'] ?? "Gagal menyimpan absensi.";
-        _showErrorDialog(context, errorMessage);
+
+        // Close loading dialog after returning from face capture
+        Navigator.of(context).pop();
+
+        // Check if face recognition was successful
+        if (recognitionSuccess != true) {
+          _showErrorDialog(context, 'Face recognition failed or was cancelled');
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        // Show loading dialog before submitting attendance
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Center(
+              child: Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: _primaryColor),
+                    SizedBox(height: 16),
+                    Text(
+                      'Memproses...',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+
+        try {
+          // Prepare mode for attendance
+          String mode =
+              _selectedAttendanceTab == 'Masuk' ? 'checkin' : 'checkout';
+
+          // Submit attendance
+          Map<String, dynamic> attendanceResult =
+              await AuthService.submitAttendance(scannedCode, mode);
+
+          // Close loading dialog
+          Navigator.of(context).pop();
+
+          // Handle the attendance result
+          if (attendanceResult['success'] == true) {
+            // Update the check-in/check-out status
+            await _loadCheckinStatus();
+            await fetchRecentAttendance();
+            
+            // Show success message after state is updated
+            if (mounted) {
+              _showSuccessDialog(context, "${_selectedAttendanceTab} berhasil!");
+              // Force a rebuild to update the button state
+              setState(() {});
+            }
+          } else {
+            if (mounted) {
+              _showErrorDialog(
+                context,
+                attendanceResult['message'] ?? 'Gagal melakukan absen',
+              );
+            }
+          }
+        } catch (e) {
+          _showErrorDialog(
+            context,
+            'Error submitting attendance: ${e.toString()}',
+          );
+        }
+      } catch (e) {
+        print('Face recognition error: $e');
+        Navigator.of(context).pop(); // Close loading dialog
+        _showErrorDialog(
+          context,
+          'Error during face recognition: ${e.toString()}',
+        );
       }
     } catch (e) {
       print('Attendance flow error: $e');
@@ -372,236 +465,110 @@ class _HomePageState extends State<HomePage> {
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop();
       }
-      _showErrorDialog(context, 'An unexpected error occurred: ${e.toString()}');
+      _showErrorDialog(
+        context,
+        'An unexpected error occurred: ${e.toString()}',
+      );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  // Add this new method for showing error dialogs
-  void _showErrorDialog(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: SmoothRectangleBorder(
-          borderRadius: SmoothBorderRadius(
-            cornerRadius: 20,
-            cornerSmoothing: 1,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: 20),
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Icon(
-                  HugeIcons.strokeRoundedAlert01,
-                  color: Colors.red,
-                  size: 50,
-                ),
-              ),
-            ),
-            SizedBox(height: 24),
-            Text(
-              "Error",
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.red,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 12),
-            Text(
-              message,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  shape: SmoothRectangleBorder(
-                    borderRadius: SmoothBorderRadius(
-                      cornerRadius: 12,
-                      cornerSmoothing: 0.8,
-                    ),
-                  ),
-                ),
-                child: Text(
-                  "OK",
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<String> _getBiometricTypeString() async {
-    try {
-      List<BiometricType> availableBiometrics = await auth.getAvailableBiometrics();
-      
-      if (Platform.isIOS) {
-        if (availableBiometrics.contains(BiometricType.face)) {
-          return 'Face ID';
-        } else if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          return 'Touch ID';
-        } else if (availableBiometrics.contains(BiometricType.strong)) {
-          return 'Biometric ID';
-        }
-      } else if (Platform.isAndroid) {
-        if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          return 'Fingerprint';
-        } else if (availableBiometrics.contains(BiometricType.face)) {
-          return 'Face Recognition';
-        } else if (availableBiometrics.contains(BiometricType.strong)) {
-          return 'Biometric';
-        }
-      }
-      return 'Biometric';
-    } catch (e) {
-      print('Error getting biometric type: $e');
-      return 'Biometric';
-    }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
-        ),
-        backgroundColor: _primaryColor,
-        behavior: SnackBarBehavior.floating,
-        shape: SmoothRectangleBorder(
-          borderRadius: SmoothBorderRadius(
-            cornerRadius: 10,
-            cornerSmoothing: 1,
-          ),
-        ),
-        margin: EdgeInsets.all(10),
-      ),
-    );
-  }
+  // Removed duplicate _showErrorDialog and _showMessage methods
 
   void _showComingSoonTooltip() {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 40),
-          padding: EdgeInsets.all(20),
-          decoration: ShapeDecoration(
-            color: Colors.white,
-            shape: SmoothRectangleBorder(
-              borderRadius: SmoothBorderRadius(
-                cornerRadius: 16,
-                cornerSmoothing: 1,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 40),
+              padding: EdgeInsets.all(20),
+              decoration: ShapeDecoration(
+                color: Colors.white,
+                shape: SmoothRectangleBorder(
+                  borderRadius: SmoothBorderRadius(
+                    cornerRadius: 16,
+                    cornerSmoothing: 1,
+                  ),
+                ),
+                shadows: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
               ),
-            ),
-            shadows: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: ShapeDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  shape: SmoothRectangleBorder(
-                    borderRadius: SmoothBorderRadius(
-                      cornerRadius: 16,
-                      cornerSmoothing: 1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: ShapeDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      shape: SmoothRectangleBorder(
+                        borderRadius: SmoothBorderRadius(
+                          cornerRadius: 16,
+                          cornerSmoothing: 1,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    HugeIcons.strokeRoundedTime04,
-                    color: Colors.orange,
-                    size: 32,
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Coming Soon',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Fitur ini akan segera tersedia untuk semua pengguna',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: Colors.black54,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    shape: SmoothRectangleBorder(
-                      borderRadius: SmoothBorderRadius(
-                        cornerRadius: 10,
-                        cornerSmoothing: 0.8,
+                    child: Center(
+                      child: Icon(
+                        HugeIcons.strokeRoundedTime04,
+                        color: Colors.orange,
+                        size: 32,
                       ),
                     ),
                   ),
-                  child: Text(
-                    'Mengerti',
+                  SizedBox(height: 16),
+                  Text(
+                    'Coming Soon',
                     style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Fitur ini akan segera tersedia untuk semua pengguna',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: Colors.black54,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        shape: SmoothRectangleBorder(
+                          borderRadius: SmoothBorderRadius(
+                            cornerRadius: 10,
+                            cornerSmoothing: 0.8,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Mengerti',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -873,11 +840,14 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: (
-                      (_selectedAttendanceTab == 'Masuk' && _checkedInToday) ||
-                      (_selectedAttendanceTab == 'Pulang' && _checkedOutToday) ||
-                      _loadingCheckinStatus
-                    ) ? null : _startAttendanceFlow,
+                    onPressed:
+                        ((_selectedAttendanceTab == 'Masuk' &&
+                                    _checkedInToday) ||
+                                (_selectedAttendanceTab == 'Pulang' &&
+                                    _checkedOutToday) ||
+                                _loadingCheckinStatus)
+                            ? null
+                            : _startAttendanceFlow,
                     icon: Icon(
                       _selectedAttendanceTab == 'Masuk'
                           ? HugeIcons.strokeRoundedFingerAccess
@@ -885,11 +855,15 @@ class _HomePageState extends State<HomePage> {
                       size: 20,
                     ),
                     label: Text(
-                      _selectedAttendanceTab == 'Masuk' && _checkedInToday && _jamIn != null
+                      _selectedAttendanceTab == 'Masuk' &&
+                              _checkedInToday &&
+                              _jamIn != null
                           ? 'Sudah Absen: $_jamIn'
-                          : _selectedAttendanceTab == 'Pulang' && _checkedOutToday && _jamOut != null
-                              ? 'Sudah Absen: $_jamOut'
-                              : _selectedAttendanceTab,
+                          : _selectedAttendanceTab == 'Pulang' &&
+                              _checkedOutToday &&
+                              _jamOut != null
+                          ? 'Sudah Absen: $_jamOut'
+                          : _selectedAttendanceTab,
                       style: GoogleFonts.outfit(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
@@ -962,142 +936,138 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHRMShortcutsCard() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 8),
-        child: Text(
-          'Menu HRM',
-          style: GoogleFonts.outfit(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-      Container(
-        padding: EdgeInsets.all(20),
-        decoration: ShapeDecoration(
-          color: Colors.white,
-          shape: SmoothRectangleBorder(
-            borderRadius: SmoothBorderRadius(
-              cornerRadius: 20,
-              cornerSmoothing: 1,
-            ),
-            side: BorderSide(color: Colors.grey.shade100, width: 2),
-          ),
-        ),
-        child: Column(
-          children: [
-            // First row - 4 items
-            Row(
-              children: [
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Izin',
-                    HugeIcons.strokeRoundedCalendarRemove01,
-                    Colors.blue,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Slip Gaji',
-                    HugeIcons.strokeRoundedMoney01,
-                    Colors.green,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Kehadiran',
-                    HugeIcons.strokeRoundedFile01,
-                    Colors.orange,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Lembur',
-                    HugeIcons.strokeRoundedClock03,
-                    Colors.purple,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 12),
-            // Second row - 4 items
-            Row(
-              children: [
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Reimburse',
-                    HugeIcons.strokeRoundedReceiptDollar,
-                    Colors.teal,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Kinerja',
-                    HugeIcons.strokeRoundedTarget01,
-                    Colors.red,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Absensi',
-                    HugeIcons.strokeRoundedCheckmarkCircle01,
-                    Colors.indigo,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildShortcutItem(
-                    'Karyawan',
-                    HugeIcons.strokeRoundedUser,
-                    Colors.pink,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _buildShortcutItem(String title, IconData icon, Color color) {
-  return GestureDetector(
-    onTap: () {
-      _showComingSoonTooltip();
-    },
-    child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: color,
-          size: 24,
-        ),
-        SizedBox(height: 6),
-        Text(
-          title,
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Menu HRM',
+            style: GoogleFonts.outfit(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        ),
+        Container(
+          padding: EdgeInsets.all(20),
+          decoration: ShapeDecoration(
+            color: Colors.white,
+            shape: SmoothRectangleBorder(
+              borderRadius: SmoothBorderRadius(
+                cornerRadius: 20,
+                cornerSmoothing: 1,
+              ),
+              side: BorderSide(color: Colors.grey.shade100, width: 2),
+            ),
+          ),
+          child: Column(
+            children: [
+              // First row - 4 items
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Izin',
+                      HugeIcons.strokeRoundedCalendarRemove01,
+                      Colors.blue,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Slip Gaji',
+                      HugeIcons.strokeRoundedMoney01,
+                      Colors.green,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Kehadiran',
+                      HugeIcons.strokeRoundedFile01,
+                      Colors.orange,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Lembur',
+                      HugeIcons.strokeRoundedClock03,
+                      Colors.purple,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              // Second row - 4 items
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Reimburse',
+                      HugeIcons.strokeRoundedReceiptDollar,
+                      Colors.teal,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Kinerja',
+                      HugeIcons.strokeRoundedTarget01,
+                      Colors.red,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Absensi',
+                      HugeIcons.strokeRoundedCheckmarkCircle01,
+                      Colors.indigo,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _buildShortcutItem(
+                      'Karyawan',
+                      HugeIcons.strokeRoundedUser,
+                      Colors.pink,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildShortcutItem(String title, IconData icon, Color color) {
+    return GestureDetector(
+      onTap: () {
+        _showComingSoonTooltip();
+      },
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          SizedBox(height: 6),
+          Text(
+            title,
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 
   // ignore: unused_element
   // Widget _buildAttendanceStatsCard() {
@@ -1414,11 +1384,11 @@ Widget _buildShortcutItem(String title, IconData icon, Color color) {
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) {
-              // Check if trying to access ticket page and user is not 'wahoy'
-              if (index == 2 && _userData['username'] != 'wahoy') {
-                  _showComingSoonTooltip();
-                return;
-              }
+            // Check if trying to access ticket page and user is not 'wahoy'
+            if (index == 2 && _userData['username'] != 'wahoy') {
+              _showComingSoonTooltip();
+              return;
+            }
             _animateIcon(index);
             setState(() {
               _selectedIndex = index;
@@ -1440,7 +1410,12 @@ Widget _buildShortcutItem(String title, IconData icon, Color color) {
           items: [
             _buildNavItem(0, HugeIcons.strokeRoundedHome01, 'Beranda'),
             _buildNavItem(1, HugeIcons.strokeRoundedCalendar03, 'Riwayat'),
-            _buildNavItem(2, HugeIcons.strokeRoundedFile01, 'Tiket', isEnabled: _userData['username'] == 'wahoy'),
+            _buildNavItem(
+              2,
+              HugeIcons.strokeRoundedFile01,
+              'Tiket',
+              isEnabled: _userData['username'] == 'wahoy',
+            ),
             _buildNavItem(3, HugeIcons.strokeRoundedUserSquare, 'Profil'),
           ],
         ),
@@ -1462,16 +1437,20 @@ Widget _buildShortcutItem(String title, IconData icon, Color color) {
   }) {
     return BottomNavigationBarItem(
       icon: GestureDetector(
-        onTap: !isEnabled ? () {
-          // Show tooltip for disabled items
-          _showComingSoonTooltip();
-        } : null,
+        onTap:
+            !isEnabled
+                ? () {
+                  // Show tooltip for disabled items
+                  _showComingSoonTooltip();
+                }
+                : null,
         child: ScaleIcon(
           key: _iconKeys[index],
           icon: icon,
-          color: !isEnabled 
-              ? Colors.grey.shade400
-              : (_selectedIndex == index ? _primaryColor : Colors.grey),
+          color:
+              !isEnabled
+                  ? Colors.grey.shade400
+                  : (_selectedIndex == index ? _primaryColor : Colors.grey),
         ),
       ),
       label: label,
