@@ -542,6 +542,7 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.w600,
             color: Colors.black,
+            fontSize: 16,
           ),
         ),
         backgroundColor: Colors.white,
@@ -571,7 +572,7 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
                   ? 'Mengenali wajah Anda'
                   : 'Verifikasi wajah',
               style: GoogleFonts.outfit(
-                fontSize: 24,
+                fontSize: 20,
                 color: Colors.black,
                 fontWeight: FontWeight.w700,
               ),
@@ -617,8 +618,8 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Text(
                       _recognitionSuccess
-                          ? 'Wajah berhasil dikenali.\nSelamat datang kembali!'
-                          : 'Wajah tidak dikenali.\nSilakan coba lagi atau gunakan metode lain.',
+                          ? 'Wajah berhasil dikenali.'
+                          : 'Wajah tidak dikenali.\nSilakan coba lagi.',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         color: Colors.grey[600],
@@ -782,7 +783,7 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
                                                 ? HugeIcons
                                                     .strokeRoundedCheckmarkCircle02
                                                 : HugeIcons
-                                                    .strokeRoundedCancel02,
+                                                    .strokeRoundedCancelCircle,
                                         color:
                                             _recognitionSuccess
                                                 ? Color(0xFF00C851)
@@ -809,7 +810,7 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
                                         SizedBox(height: 12),
                                         Text(
                                           _recognitionSuccess
-                                              ? 'Selamat datang kembali!'
+                                              ? 'Lanjutkan untuk simpan absen'
                                               : 'Silakan coba lagi',
                                           style: GoogleFonts.outfit(
                                             color: Colors.white.withOpacity(
@@ -871,74 +872,70 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
                     child: Row(
                       children: [
                         if (!_recognitionSuccess)
-                          Expanded(
-                            child: SizedBox(
-                              height: 56,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  // Reset for retry
-                                  setState(() {
-                                    _recognitionComplete = false;
-                                    _recognitionSuccess = false;
-                                  });
-                                  _successAnimationController.reset();
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey[600],
-                                  elevation: 0,
-                                  shape: SmoothRectangleBorder(
-                                    borderRadius: SmoothBorderRadius(
-                                      cornerRadius: 16,
-                                      cornerSmoothing: 1,
+                          if (!_recognitionSuccess)
+                            Expanded(
+                              child: SizedBox(
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // Reset for retry
+                                    setState(() {
+                                      _recognitionComplete = false;
+                                      _recognitionSuccess = false;
+                                    });
+                                    _successAnimationController.reset();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _primaryColor,
+                                    elevation: 0,
+                                    shape: SmoothRectangleBorder(
+                                      borderRadius: SmoothBorderRadius(
+                                        cornerRadius: 16,
+                                        cornerSmoothing: 1,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Coba Lagi',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
-                                child: Text(
-                                  'Coba Lagi',
-                                  style: GoogleFonts.outfit(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                              ),
+                            )
+                          else
+                            Expanded(
+                              child: SizedBox(
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed:
+                                      () => Navigator.of(
+                                        context,
+                                      ).pop(_recognitionSuccess),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Color(0xFF00C851),
+                                    elevation: 0,
+                                    shape: SmoothRectangleBorder(
+                                      borderRadius: SmoothBorderRadius(
+                                        cornerRadius: 16,
+                                        cornerSmoothing: 1,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Lanjutkan',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        if (!_recognitionSuccess) SizedBox(width: 16),
-                        Expanded(
-                          child: SizedBox(
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed:
-                                  () => Navigator.of(
-                                    context,
-                                  ).pop(_recognitionSuccess),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    _recognitionSuccess
-                                        ? Color(0xFF00C851)
-                                        : _primaryColor,
-                                elevation: 0,
-                                shape: SmoothRectangleBorder(
-                                  borderRadius: SmoothBorderRadius(
-                                    cornerRadius: 16,
-                                    cornerSmoothing: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Text(
-                                _recognitionSuccess
-                                    ? 'Lanjutkan'
-                                    : 'Gunakan PIN',
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
