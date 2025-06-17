@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'dart:async';
 import 'dart:typed_data' show Uint8List;
@@ -8,6 +10,9 @@ import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:figma_squircle/figma_squircle.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:permission_handler/permission_handler.dart';
 import '../services/auth_service.dart';
 
 class FaceRegistrationPage extends StatefulWidget {
@@ -30,9 +35,10 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
     final options = FaceDetectorOptions(
       enableTracking: true,
       enableLandmarks: true,
-      enableClassification: true,
-      minFaceSize: 0.15,
-      performanceMode: FaceDetectorMode.accurate,
+      enableClassification: false, // Disable if not needed
+      minFaceSize: 0.3, // Increase minimum face size for better performance
+      performanceMode:
+          FaceDetectorMode.fast, // Use fast mode for better performance
     );
     _faceDetector = FaceDetector(options: options);
   }
@@ -99,6 +105,13 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
 
   Future<void> _initializeCamera() async {
     try {
+      // Check if we have camera permission
+      final status = await Permission.camera.status;
+      if (!status.isGranted) {
+        await Permission.camera.request();
+      }
+
+      if (!mounted) return;
       final cameras = await availableCameras();
       final frontCamera = cameras.firstWhere(
         (camera) => camera.lensDirection == CameraLensDirection.front,
@@ -107,7 +120,12 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
 
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium, // Use medium for better compatibility
+        imageFormatGroup:
+            Platform.isIOS
+                ? ImageFormatGroup
+                    .bgra8888 // iOS uses BGRA
+                : ImageFormatGroup.yuv420, // Android uses YUV
         enableAudio: false,
       );
 
@@ -117,9 +135,11 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
         _startImageStream();
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Gagal menginisialisasi kamera: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Camera initialization failed: ${e.toString()}';
+        });
+      }
     }
   }
 
@@ -156,7 +176,10 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
           metadata: InputImageMetadata(
             size: imageSize,
             rotation: imageRotation,
-            format: InputImageFormat.nv21,
+            format:
+                Platform.isIOS
+                    ? InputImageFormat.bgra8888
+                    : InputImageFormat.nv21,
             bytesPerRow: image.planes[0].bytesPerRow,
           ),
         );
