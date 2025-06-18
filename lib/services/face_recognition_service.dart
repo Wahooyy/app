@@ -133,59 +133,52 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
         orElse: () => cameras.first,
       );
 
-      // First try with bgra8888 format if on Android
-      bool useBgra8888 = Platform.isAndroid;
-      bool initializationSuccess = false;
+      // Use appropriate settings for each platform
+      ResolutionPreset preset =
+          Platform.isAndroid ? ResolutionPreset.high : ResolutionPreset.medium;
 
-      while (true) {
+      ImageFormatGroup formatGroup =
+          Platform.isAndroid
+              ? ImageFormatGroup.nv21
+              : ImageFormatGroup.bgra8888;
+
+      _cameraController = CameraController(
+        frontCamera,
+        preset,
+        imageFormatGroup: formatGroup,
+        enableAudio: false,
+      );
+
+      await _cameraController?.initialize();
+
+      if (_cameraController != null && mounted) {
+        // Configure camera for both platforms
         try {
-          _cameraController = CameraController(
-            frontCamera,
-            Platform.isAndroid
-                ? ResolutionPreset.high
-                : ResolutionPreset.medium,
-            imageFormatGroup:
-                useBgra8888
-                    ? ImageFormatGroup.bgra8888
-                    : ImageFormatGroup.yuv420,
-            enableAudio: false,
-          );
+          // Set exposure mode to auto
+          await _cameraController!.setExposureMode(ExposureMode.auto);
 
-          await _cameraController?.initialize();
-          initializationSuccess = true;
-          break;
+          // Set exposure point to center of the screen (0.5, 0.5)
+          await _cameraController!.setExposurePoint(Offset(0.5, 0.5));
+
+          // Set exposure offset to make the image brighter
+          // iOS typically handles exposure better with a higher value
+          final exposureOffset = Platform.isIOS ? 1.0 : 0.7;
+          await _cameraController!.setExposureOffset(exposureOffset);
+
+          // Set focus mode to auto with center point
+          await _cameraController!.setFocusMode(FocusMode.auto);
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+
+          // For iOS, try to enable torch mode if available
+          if (Platform.isIOS) {
+            try {
+              await _cameraController!.setFlashMode(FlashMode.torch);
+            } catch (e) {
+              print('Could not enable torch mode: $e');
+            }
+          }
         } catch (e) {
-          if (useBgra8888) {
-            // If bgra8888 fails, try again with yuv420
-            useBgra8888 = false;
-            await _cameraController?.dispose();
-            _cameraController = null;
-          } else {
-            // If yuv420 also fails, rethrow the error
-            rethrow;
-          }
-        }
-      }
-
-      if (_cameraController != null && mounted && initializationSuccess) {
-        // Set exposure mode and compensation for Android
-        if (Platform.isAndroid) {
-          try {
-            // Set exposure mode to auto
-            await _cameraController!.setExposureMode(ExposureMode.auto);
-
-            // Set exposure point to center of the screen (0.5, 0.5)
-            await _cameraController!.setExposurePoint(Offset(0.5, 0.5));
-
-            // Set exposure offset to make the image brighter (value between -1.0 and 1.0)
-            await _cameraController!.setExposureOffset(0.7);
-
-            // Set focus mode to auto with center point
-            await _cameraController!.setFocusMode(FocusMode.auto);
-            await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
-          } catch (e) {
-            print('Error setting camera parameters: $e');
-          }
+          print('Error setting camera parameters: $e');
         }
 
         setState(() {});
@@ -405,17 +398,20 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
         print('❌ Error: Empty face image bytes');
         return [];
       }
-      
+
       // In a real implementation, you would send this to your server
       // to compute the face embedding using a face recognition model
       // For now, we'll return a dummy embedding
-      final embedding = List<double>.generate(128, (index) => Random().nextDouble());
-      
+      final embedding = List<double>.generate(
+        128,
+        (index) => Random().nextDouble(),
+      );
+
       // Validate the generated embedding
       if (embedding.any((e) => e.isNaN || e.isInfinite)) {
         print('❌ Warning: Generated embedding contains invalid values');
       }
-      
+
       print('Generated embedding: ${embedding.length} dimensions');
       return embedding;
     } catch (e) {
@@ -487,29 +483,31 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
     print('=== Face Matching Debug ===');
     print('Live embedding length: ${liveEmbedding.length}');
     print('Stored embedding length: ${storedEmbedding.length}');
-    
+
     if (liveEmbedding.isEmpty || storedEmbedding.isEmpty) {
       print('❌ Error: One or both embeddings are empty');
       return false;
     }
-    
+
     if (liveEmbedding.length != storedEmbedding.length) {
-      print('❌ Error: Embedding length mismatch (${liveEmbedding.length} vs ${storedEmbedding.length})');
+      print(
+        '❌ Error: Embedding length mismatch (${liveEmbedding.length} vs ${storedEmbedding.length})',
+      );
       return false;
     }
-    
+
     final similarity = _calculateSimilarity(liveEmbedding, storedEmbedding);
     print('Similarity score: $similarity (Threshold: $_faceMatchThreshold)');
-    
+
     if (similarity.isNaN) {
       print('❌ Error: Invalid similarity score (NaN)');
       return false;
     }
-    
+
     final bool isMatch = similarity > _faceMatchThreshold;
     print('Match result: ${isMatch ? '✅ MATCH' : '❌ NO MATCH'}');
     print('==========================');
-    
+
     return isMatch;
   }
 
@@ -560,12 +558,12 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
     for (int i = 0; i < embedding1.length; i++) {
       final e1 = embedding1[i];
       final e2 = embedding2[i];
-      
+
       // Skip NaN or infinite values
       if (e1.isNaN || e2.isNaN || e1.isInfinite || e2.isInfinite) {
         continue;
       }
-      
+
       dotProduct += e1 * e2;
       norm1 += e1 * e1;
       norm2 += e2 * e2;
@@ -584,7 +582,7 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
     }
 
     final similarity = dotProduct / (sqrt(norm1) * sqrt(norm2));
-    
+
     // Clamp the result between -1.0 and 1.0 to handle floating point errors
     return similarity.clamp(-1.0, 1.0);
   }

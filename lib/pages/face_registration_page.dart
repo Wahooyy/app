@@ -119,59 +119,52 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
         orElse: () => cameras.first,
       );
 
-      // First try with bgra8888 format if on Android
-      bool useBgra8888 = Platform.isAndroid;
-      bool initializationSuccess = false;
+      // Use appropriate settings for each platform
+      ResolutionPreset preset = Platform.isAndroid 
+          ? ResolutionPreset.high 
+          : ResolutionPreset.medium;
+      
+      ImageFormatGroup formatGroup = Platform.isAndroid 
+          ? ImageFormatGroup.nv21 
+          : ImageFormatGroup.bgra8888;
 
-      while (true) {
+      _cameraController = CameraController(
+        frontCamera,
+        preset,
+        imageFormatGroup: formatGroup,
+        enableAudio: false,
+      );
+
+      await _cameraController?.initialize();
+
+      if (_cameraController != null && mounted) {
+        // Configure camera for both platforms
         try {
-          _cameraController = CameraController(
-            frontCamera,
-            Platform.isAndroid
-                ? ResolutionPreset.high
-                : ResolutionPreset.medium,
-            imageFormatGroup:
-                useBgra8888
-                    ? ImageFormatGroup.bgra8888
-                    : ImageFormatGroup.yuv420,
-            enableAudio: false,
-          );
+          // Set exposure mode to auto
+          await _cameraController!.setExposureMode(ExposureMode.auto);
+          
+          // Set exposure point to center of the screen (0.5, 0.5)
+          await _cameraController!.setExposurePoint(Offset(0.5, 0.5));
+          
+          // Set exposure offset to make the image brighter
+          // iOS typically handles exposure better with a higher value
+          final exposureOffset = Platform.isIOS ? 1.0 : 0.7;
+          await _cameraController!.setExposureOffset(exposureOffset);
 
-          await _cameraController?.initialize();
-          initializationSuccess = true;
-          break;
+          // Set focus mode to auto with center point
+          await _cameraController!.setFocusMode(FocusMode.auto);
+          await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          
+          // For iOS, try to enable torch mode if available
+          if (Platform.isIOS) {
+            try {
+              await _cameraController!.setFlashMode(FlashMode.torch);
+            } catch (e) {
+              print('Could not enable torch mode: $e');
+            }
+          }
         } catch (e) {
-          if (useBgra8888) {
-            // If bgra8888 fails, try again with yuv420
-            useBgra8888 = false;
-            await _cameraController?.dispose();
-            _cameraController = null;
-          } else {
-            // If yuv420 also fails, rethrow the error
-            rethrow;
-          }
-        }
-      }
-
-      if (_cameraController != null && mounted && initializationSuccess) {
-        // Set exposure mode and compensation for Android
-        if (Platform.isAndroid) {
-          try {
-            // Set exposure mode to auto
-            await _cameraController!.setExposureMode(ExposureMode.auto);
-
-            // Set exposure point to center of the screen (0.5, 0.5)
-            await _cameraController!.setExposurePoint(Offset(0.5, 0.5));
-
-            // Set exposure offset to make the image brighter (value between -1.0 and 1.0)
-            await _cameraController!.setExposureOffset(0.7);
-
-            // Set focus mode to auto with center point
-            await _cameraController!.setFocusMode(FocusMode.auto);
-            await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
-          } catch (e) {
-            print('Error setting camera parameters: $e');
-          }
+          print('Error setting camera parameters: $e');
         }
 
         setState(() {});
@@ -543,16 +536,15 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                       child: FittedBox(
                         fit: BoxFit.cover,
                         child: SizedBox(
-                          width:
-                              _cameraController!.value.previewSize?.height ?? 1,
-                          height:
-                              _cameraController!.value.previewSize?.width ?? 1,
-                          child: Transform(
-                            alignment: Alignment.center,
-                            transform:
-                                Matrix4.identity()..scale(-1.0, 1.0, 1.0),
-                            child: CameraPreview(_cameraController!),
-                          ),
+                          width: _cameraController!.value.previewSize?.width ?? 1,
+                          height: _cameraController!.value.previewSize?.height ?? 1,
+                          child: Platform.isIOS 
+                              ? CameraPreview(_cameraController!)
+                              : Transform(
+                                  alignment: Alignment.center,
+                                  transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+                                  child: CameraPreview(_cameraController!),
+                                ),
                         ),
                       ),
                     ),
