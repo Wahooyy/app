@@ -15,6 +15,7 @@ import '../services/auth_service.dart';
 import 'attendance_history.dart';
 import 'profile.dart';
 import 'ticket_support_page.dart';
+import 'face_registration_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -367,9 +368,156 @@ class _HomePageState extends State<HomePage> {
       _showLoadingDialog(context);
 
       try {
+        // Get current user ID - replace with your actual user ID retrieval
+        final userId = AuthService.getUserId();
+
+        if (userId == null) {
+          Navigator.of(context).pop(); // Close loading dialog
+          setState(() => _isLoading = false);
+          _showMessage('User not logged in');
+          return;
+        }
+
+        // Get the face embedding from the server
+        final faceEmbedding = await AuthService.getUserFaceEmbedding(userId);
+        print('Face embedding: $faceEmbedding');
+
+        if (!mounted) return;
+        Navigator.of(context).pop();
+
+        if (faceEmbedding == null) {
+          setState(() => _isLoading = false);
+          // Show dialog to register face first
+          final shouldRegister = await showDialog<bool>(
+            context: context,
+            builder:
+                (context) => AlertDialog(
+                  shape: SmoothRectangleBorder(
+                    borderRadius: SmoothBorderRadius(
+                      cornerRadius: 20,
+                      cornerSmoothing: 1,
+                    ),
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(height: 20),
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: _primaryColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            HugeIcons.strokeRoundedFaceId,
+                            color: _primaryColor,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      Text(
+                        'Face Not Registered',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Would you like to register your face now?',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.black54,
+                                side: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1.5,
+                                ),
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: SmoothRectangleBorder(
+                                  borderRadius: SmoothBorderRadius(
+                                    cornerRadius: 12,
+                                    cornerSmoothing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pop(context, true),
+                              // icon: Icon(
+                              //   HugeIcons.strokeRoundedFaceId,
+                              //   size: 18,
+                              // ),
+                              label: Text(
+                                'Register',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: SmoothRectangleBorder(
+                                  borderRadius: SmoothBorderRadius(
+                                    cornerRadius: 12,
+                                    cornerSmoothing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+          );
+
+          if (shouldRegister == true) {
+            // Navigate to face registration page
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => FaceRegistrationPage()),
+            );
+          }
+          setState(() => _isLoading = false);
+          return;
+        }
+
         // Navigate to FaceRecognitionPage and wait for result
         final bool? recognitionSuccess = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(builder: (context) => FaceRecognitionPage()),
+          MaterialPageRoute(
+            builder:
+                (context) =>
+                    FaceRecognitionPage(storedFaceEmbedding: faceEmbedding),
+          ),
         );
 
         // Close loading dialog after returning from face capture

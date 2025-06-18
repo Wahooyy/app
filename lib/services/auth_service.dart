@@ -1075,4 +1075,24 @@ class AuthService {
       return false;
     }
   }
+
+  static Future<String?> getUserFaceEmbedding(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/get_faces_embedding.php?user_id=$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['face_embedding'];
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching face embedding: $e');
+      return null;
+    }
+  }
 }

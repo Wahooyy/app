@@ -119,19 +119,61 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
         orElse: () => cameras.first,
       );
 
-      _cameraController = CameraController(
-        frontCamera,
-        ResolutionPreset.medium, // Use medium for better compatibility
-        imageFormatGroup:
-            Platform.isIOS
-                ? ImageFormatGroup
-                    .bgra8888 // iOS uses BGRA
-                : ImageFormatGroup.yuv420, // Android uses YUV
-        enableAudio: false,
-      );
+      // First try with bgra8888 format if on Android
+      bool useBgra8888 = Platform.isAndroid;
+      bool initializationSuccess = false;
 
-      await _cameraController?.initialize();
-      if (mounted) {
+      while (true) {
+        try {
+          _cameraController = CameraController(
+            frontCamera,
+            Platform.isAndroid
+                ? ResolutionPreset.high
+                : ResolutionPreset.medium,
+            imageFormatGroup:
+                useBgra8888
+                    ? ImageFormatGroup.bgra8888
+                    : ImageFormatGroup.yuv420,
+            enableAudio: false,
+          );
+
+          await _cameraController?.initialize();
+          initializationSuccess = true;
+          break;
+        } catch (e) {
+          if (useBgra8888) {
+            // If bgra8888 fails, try again with yuv420
+            useBgra8888 = false;
+            await _cameraController?.dispose();
+            _cameraController = null;
+          } else {
+            // If yuv420 also fails, rethrow the error
+            rethrow;
+          }
+        }
+      }
+
+      if (_cameraController != null && mounted && initializationSuccess) {
+        // Set exposure mode and compensation for Android
+        if (Platform.isAndroid) {
+          try {
+            // Set exposure mode to auto
+            await _cameraController!.setExposureMode(ExposureMode.auto);
+
+            // Set exposure point to center of the screen (0.5, 0.5)
+            await _cameraController!.setExposurePoint(Offset(0.5, 0.5));
+
+            // Set exposure offset to make the image brighter (value between -1.0 and 1.0)
+            await _cameraController!.setExposureOffset(0.7);
+
+            // Set focus mode to auto with center point
+            await _cameraController!.setFocusMode(FocusMode.auto);
+            await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          } catch (e) {
+            print('Error setting camera parameters: $e');
+          }
+        }
+
         setState(() {});
         _startImageStream();
       }
@@ -146,6 +188,11 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
 
   void _startImageStream() {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      // Try to reinitialize the camera if not initialized
+      if (_cameraController != null &&
+          !_cameraController!.value.isInitialized) {
+        _initializeCamera();
+      }
       return;
     }
 
@@ -500,7 +547,12 @@ class _FaceRegistrationPageState extends State<FaceRegistrationPage>
                               _cameraController!.value.previewSize?.height ?? 1,
                           height:
                               _cameraController!.value.previewSize?.width ?? 1,
-                          child: CameraPreview(_cameraController!),
+                          child: Transform(
+                            alignment: Alignment.center,
+                            transform:
+                                Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+                            child: CameraPreview(_cameraController!),
+                          ),
                         ),
                       ),
                     ),

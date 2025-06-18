@@ -1,4 +1,5 @@
 //face_recognition_service.dart page
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:async';
@@ -132,19 +133,61 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
         orElse: () => cameras.first,
       );
 
-      _cameraController = CameraController(
-        frontCamera,
-        ResolutionPreset.medium, // Use medium for better compatibility
-        imageFormatGroup:
-            Platform.isIOS
-                ? ImageFormatGroup
-                    .bgra8888 // iOS uses BGRA
-                : ImageFormatGroup.yuv420, // Android uses YUV
-        enableAudio: false,
-      );
+      // First try with bgra8888 format if on Android
+      bool useBgra8888 = Platform.isAndroid;
+      bool initializationSuccess = false;
 
-      await _cameraController?.initialize();
-      if (mounted) {
+      while (true) {
+        try {
+          _cameraController = CameraController(
+            frontCamera,
+            Platform.isAndroid
+                ? ResolutionPreset.high
+                : ResolutionPreset.medium,
+            imageFormatGroup:
+                useBgra8888
+                    ? ImageFormatGroup.bgra8888
+                    : ImageFormatGroup.yuv420,
+            enableAudio: false,
+          );
+
+          await _cameraController?.initialize();
+          initializationSuccess = true;
+          break;
+        } catch (e) {
+          if (useBgra8888) {
+            // If bgra8888 fails, try again with yuv420
+            useBgra8888 = false;
+            await _cameraController?.dispose();
+            _cameraController = null;
+          } else {
+            // If yuv420 also fails, rethrow the error
+            rethrow;
+          }
+        }
+      }
+
+      if (_cameraController != null && mounted && initializationSuccess) {
+        // Set exposure mode and compensation for Android
+        if (Platform.isAndroid) {
+          try {
+            // Set exposure mode to auto
+            await _cameraController!.setExposureMode(ExposureMode.auto);
+
+            // Set exposure point to center of the screen (0.5, 0.5)
+            await _cameraController!.setExposurePoint(Offset(0.5, 0.5));
+
+            // Set exposure offset to make the image brighter (value between -1.0 and 1.0)
+            await _cameraController!.setExposureOffset(0.7);
+
+            // Set focus mode to auto with center point
+            await _cameraController!.setFocusMode(FocusMode.auto);
+            await _cameraController!.setFocusPoint(Offset(0.5, 0.5));
+          } catch (e) {
+            print('Error setting camera parameters: $e');
+          }
+        }
+
         setState(() {});
         _startImageStream();
       }
@@ -159,6 +202,11 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
 
   void _startImageStream() {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      // Try to reinitialize the camera if not initialized
+      if (_cameraController != null &&
+          !_cameraController!.value.isInitialized) {
+        _initializeCamera();
+      }
       return;
     }
 
@@ -332,28 +380,48 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
   }
 
   List<double> _parseStoredEmbedding(String embeddingJson) {
-    // Parse the stored embedding from JSON format
-    // This is a simplified version - adjust based on your actual format
     try {
-      // Remove the outer braces and extract the array
-      final cleaned = embeddingJson.replaceAll(RegExp(r'[{}"]'), '');
-      final parts = cleaned.split(':');
-      if (parts.length > 1) {
-        final arrayPart = parts[1].replaceAll('[', '').replaceAll(']', '');
-        return arrayPart.split(',').map((e) => double.parse(e.trim())).toList();
+      // Parse the JSON string to a Map
+      final Map<String, dynamic> jsonData = jsonDecode(embeddingJson);
+
+      // Extract the embedding array
+      if (jsonData.containsKey('embedding') && jsonData['embedding'] is List) {
+        return List<double>.from(
+          jsonData['embedding'].map((e) => e.toDouble()),
+        );
       }
     } catch (e) {
       print('Error parsing stored embedding: $e');
     }
+
     // Return dummy embedding if parsing fails
     return List.generate(128, (i) => Random().nextDouble());
   }
 
   Future<List<double>> getFaceEmbedding(Uint8List faceImageBytes) async {
-    // In a real implementation, you would send this to your server
-    // to compute the face embedding using a face recognition model
-    // For now, we'll return a dummy embedding
-    return List<double>.generate(128, (index) => Random().nextDouble());
+    print('Generating face embedding...');
+    try {
+      if (faceImageBytes.isEmpty) {
+        print('❌ Error: Empty face image bytes');
+        return [];
+      }
+      
+      // In a real implementation, you would send this to your server
+      // to compute the face embedding using a face recognition model
+      // For now, we'll return a dummy embedding
+      final embedding = List<double>.generate(128, (index) => Random().nextDouble());
+      
+      // Validate the generated embedding
+      if (embedding.any((e) => e.isNaN || e.isInfinite)) {
+        print('❌ Warning: Generated embedding contains invalid values');
+      }
+      
+      print('Generated embedding: ${embedding.length} dimensions');
+      return embedding;
+    } catch (e) {
+      print('❌ Error in getFaceEmbedding: $e');
+      return [];
+    }
   }
 
   Future<Uint8List?> captureFace() async {
@@ -416,8 +484,33 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
   }
 
   bool isFaceMatch(List<double> liveEmbedding, List<double> storedEmbedding) {
+    print('=== Face Matching Debug ===');
+    print('Live embedding length: ${liveEmbedding.length}');
+    print('Stored embedding length: ${storedEmbedding.length}');
+    
+    if (liveEmbedding.isEmpty || storedEmbedding.isEmpty) {
+      print('❌ Error: One or both embeddings are empty');
+      return false;
+    }
+    
+    if (liveEmbedding.length != storedEmbedding.length) {
+      print('❌ Error: Embedding length mismatch (${liveEmbedding.length} vs ${storedEmbedding.length})');
+      return false;
+    }
+    
     final similarity = _calculateSimilarity(liveEmbedding, storedEmbedding);
-    return similarity >= _faceMatchThreshold;
+    print('Similarity score: $similarity (Threshold: $_faceMatchThreshold)');
+    
+    if (similarity.isNaN) {
+      print('❌ Error: Invalid similarity score (NaN)');
+      return false;
+    }
+    
+    final bool isMatch = similarity > _faceMatchThreshold;
+    print('Match result: ${isMatch ? '✅ MATCH' : '❌ NO MATCH'}');
+    print('==========================');
+    
+    return isMatch;
   }
 
   img.Image _cropFace(
@@ -454,20 +547,46 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
     List<double> embedding1,
     List<double> embedding2,
   ) {
-    if (embedding1.length != embedding2.length) return 0.0;
+    if (embedding1.length != embedding2.length) {
+      print('❌ Embedding length mismatch in similarity calculation');
+      return 0.0;
+    }
 
     double dotProduct = 0.0;
     double norm1 = 0.0;
     double norm2 = 0.0;
+    int validPairs = 0;
 
     for (int i = 0; i < embedding1.length; i++) {
-      dotProduct += embedding1[i] * embedding2[i];
-      norm1 += embedding1[i] * embedding1[i];
-      norm2 += embedding2[i] * embedding2[i];
+      final e1 = embedding1[i];
+      final e2 = embedding2[i];
+      
+      // Skip NaN or infinite values
+      if (e1.isNaN || e2.isNaN || e1.isInfinite || e2.isInfinite) {
+        continue;
+      }
+      
+      dotProduct += e1 * e2;
+      norm1 += e1 * e1;
+      norm2 += e2 * e2;
+      validPairs++;
     }
 
-    if (norm1 == 0.0 || norm2 == 0.0) return 0.0;
-    return dotProduct / (sqrt(norm1) * sqrt(norm2));
+    if (validPairs == 0) {
+      print('❌ No valid embedding pairs for similarity calculation');
+      return 0.0;
+    }
+
+    if (norm1 <= 0.0 || norm2 <= 0.0) {
+      print('❌ Zero or negative norm in similarity calculation');
+      print('Norm1: $norm1, Norm2: $norm2');
+      return 0.0;
+    }
+
+    final similarity = dotProduct / (sqrt(norm1) * sqrt(norm2));
+    
+    // Clamp the result between -1.0 and 1.0 to handle floating point errors
+    return similarity.clamp(-1.0, 1.0);
   }
 
   void _showError(String message) {
@@ -667,7 +786,12 @@ class _FaceRecognitionPageState extends State<FaceRecognitionPage>
                               _cameraController!.value.previewSize?.height ?? 1,
                           height:
                               _cameraController!.value.previewSize?.width ?? 1,
-                          child: CameraPreview(_cameraController!),
+                          child: Transform(
+                            alignment: Alignment.center,
+                            transform:
+                                Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+                            child: CameraPreview(_cameraController!),
+                          ),
                         ),
                       ),
                     ),
